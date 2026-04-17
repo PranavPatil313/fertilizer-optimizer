@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* small custom */
+body { background-color: #f3f6f8; }
+.card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }

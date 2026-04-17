@@ -1,0 +1,44 @@
+{
+  "cotton": {
+    "display_name": "Cotton",
+    "n_split": [0.4, 0.6],
+    "topdress_splits": 2,
+    "max_kg_per_application": {"N": 100, "P": 60, "K": 100},
+    "notes": "Cotton requires balanced NPK with split nitrogen applications. Adjust based on soil type and region (Maharashtra)."
+  },
+  "sugarcane": {
+    "display_name": "Sugarcane",
+    "n_split": [0.5, 0.5],
+    "topdress_splits": 3,
+    "max_kg_per_application": {"N": 120, "P": 80, "K": 120},
+    "notes": "Sugarcane is a heavy feeder requiring high NPK. Multiple topdressings recommended, especially in rainfed conditions."
+  },
+  "wheat": {
+    "display_name": "Wheat",
+    "n_split": [0.3, 0.7],
+    "topdress_splits": 2,
+    "max_kg_per_application": {"N": 60, "P": 40, "K": 60},
+    "notes": "Wheat prefers smaller basal and larger split topdressings. Tune split by variety/region."
+  },
+  "maize": {
+    "display_name": "Maize",
+    "n_split": [0.4, 0.6],
+    "topdress_splits": 2,
+    "max_kg_per_application": {"N": 80, "P": 50, "K": 80},
+    "notes": "Maize benefits from relatively larger basal N."
+  },
+  "rice": {
+    "display_name": "Rice",
+    "n_split": [0.5, 0.5],
+    "topdress_splits": 3,
+    "max_kg_per_application": {"N": 70, "P": 40, "K": 70},
+    "notes": "Wetland rice often needs special timing; consult local practice."
+  },
+  "soybean": {
+    "display_name": "Soybean",
+    "n_split": [1.0, 0.0],
+    "topdress_splits": 0,
+    "max_kg_per_application": {"N": 30, "P": 30, "K": 30},
+    "notes": "Soybean often fixes N biologically — low synthetic N recommended."
+  }
+}

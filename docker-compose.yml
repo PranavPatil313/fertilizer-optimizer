@@ -1,0 +1,121 @@
+# Fertilizer Optimizer - Docker Compose for Local Testing
+# Use this to test the full stack locally before cloud deployment
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fertilizer-postgres
+    environment:
+      POSTGRES_USER: fertilizer_user
+      POSTGRES_PASSWORD: fertilizer_password
+      POSTGRES_DB: fertilizer_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fertilizer_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fertilizer-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fertilizer-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db
+      DATABASE_ECHO: "false"
+      
+      # Application Settings
+      ENVIRONMENT: development
+      SECRET_KEY: local-development-secret-key-change-in-production
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: 60
+      
+      # API Security
+      API_KEY_ENABLED: "true"
+      API_KEY: test-api-key-12345
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_REQUESTS: "100"
+      RATE_LIMIT_PERIOD: "60"
+      
+      # CORS Configuration
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:3000"
+      CORS_ALLOW_CREDENTIALS: "true"
+      
+      # Logging
+      LOG_LEVEL: INFO
+      
+      # ML Model Settings
+      MODEL_ARTIFACT_PATH: src/artifact/model_artifact_v1.pkl
+      PREPROCESSOR_PATH: src/artifact/preprocessor.pkl
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src/artifact:/app/src/artifact
+      - ./src/data:/app/src/data
+      - ./logs:/app/logs
+    command: ["./start_production.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - fertilizer-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./fert-frontend
+      dockerfile: Dockerfile
+    container_name: fertilizer-frontend
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_API_KEY: test-api-key-12345
+      VITE_ENVIRONMENT: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./fert-frontend:/app
+      - /app/node_modules
+    networks:
+      - fertilizer-network
+
+  # Optional: PGAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: fertilizer-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@fertilizer.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - fertilizer-network
+
+networks:
+  fertilizer-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
