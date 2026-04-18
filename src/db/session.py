@@ -10,11 +10,17 @@ def get_async_database_url():
     Get database URL and ensure it uses asyncpg driver for async operations.
     Railway provides DATABASE_URL in format: postgresql://user:pass@host:port/db
     We need to convert it to: postgresql+asyncpg://user:pass@host:port/db
+    
+    In production (Railway), DATABASE_URL must be set.
+    For local development without PostgreSQL, falls back to SQLite.
     """
-    url = os.getenv(
-        "DATABASE_URL",
-        "postgresql+asyncpg://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db"
-    )
+    url = os.getenv("DATABASE_URL")
+    
+    if not url:
+        # No DATABASE_URL set - use SQLite for local development
+        print("WARNING: DATABASE_URL not set. Using SQLite for local development.")
+        print("   For production (Railway), ensure PostgreSQL is attached and DATABASE_URL is set.")
+        return "sqlite+aiosqlite:///./fertilizer.db"
     
     # Convert postgresql:// to postgresql+asyncpg:// if no async driver specified
     if url.startswith("postgresql://") and "+asyncpg" not in url and "+psycopg" not in url:

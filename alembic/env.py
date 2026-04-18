@@ -39,13 +39,18 @@ target_metadata = Base.metadata
 def get_sync_database_url():
     """
     Get a synchronous database URL for Alembic migrations.
-    Uses DATABASE_URL environment variable, falling back to default.
+    Uses DATABASE_URL environment variable.
     Converts async drivers (psycopg, asyncpg) to sync driver (psycopg2).
+    
+    If no DATABASE_URL is set, uses SQLite for local development.
     """
     import re
-    # Get DATABASE_URL from environment or use default from session.py
-    default_url = "postgresql+asyncpg://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db"
-    url = os.getenv("DATABASE_URL", default_url)
+    url = os.getenv("DATABASE_URL")
+    
+    if not url:
+        # No DATABASE_URL set - use SQLite for local development
+        print("WARNING: DATABASE_URL not set for migrations. Using SQLite.")
+        return "sqlite:///./fertilizer.db"
     
     # Convert async driver to sync driver (psycopg2)
     # Replace postgresql+psycopg with postgresql+psycopg2
