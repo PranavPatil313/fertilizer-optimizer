@@ -1,0 +1,60 @@
+{
+  "features": [
+    "crop_type",
+    "soil_type",
+    "region",
+    "avg_temp",
+    "rainfall_mm",
+    "crop_duration_days",
+    "soil_N",
+    "soil_P",
+    "soil_K",
+    "pH",
+    "organic_matter_pct",
+    "irrigation_type",
+    "area_acre"
+  ],
+  "targets": [
+    "N_kg_ha",
+    "P_kg_ha",
+    "K_kg_ha",
+    "yield_kg_ha"
+  ],
+  "num_cols": [
+    "avg_temp",
+    "rainfall_mm",
+    "crop_duration_days",
+    "soil_N",
+    "soil_P",
+    "soil_K",
+    "pH",
+    "organic_matter_pct",
+    "area_acre"
+  ],
+  "cat_cols": [
+    "crop_type",
+    "soil_type",
+    "region",
+    "irrigation_type"
+  ],
+  "scores": {
+    "N_kg_ha": {
+      "mae": 1.648395489182913e-11,
+      "rmse": 1.6649724228850956e-11
+    },
+    "P_kg_ha": {
+      "mae": 9.54369053932125e-12,
+      "rmse": 9.615582192602224e-12
+    },
+    "K_kg_ha": {
+      "mae": 1.1197473791564487e-12,
+      "rmse": 1.3809976903874336e-12
+    },
+    "yield_kg_ha": {
+      "mae": 30862.72179698603,
+      "rmse": 35662.155383570615
+    }
+  },
+  "created_at": "2025-11-22T05:03:03.166731",
+  "notes": "Retrained from admin job 4"
+}

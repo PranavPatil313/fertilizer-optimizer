@@ -127,7 +127,9 @@ public
 
 # ML artifacts (large files)
 src/artifact/
+!src/artifact/
 !src/artifact/metadata.json
+!src/artifact/model.pkl
 !src/artifact/model_artifact_v1.pkl
 !src/artifact/preprocessor.pkl
 
