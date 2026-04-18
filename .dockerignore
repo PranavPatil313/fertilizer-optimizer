@@ -1,0 +1,70 @@
+# Docker ignore file to reduce context size
+.git
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Data and artifacts
+data/
+src/data/
+catboost_info/
+# Exclude PDF files in artifact directory (must come before inclusions)
+src/artifact/*.pdf
+# Exclude all .pkl files by default
+*.pkl
+# But include specific model files in src/artifact/
+!src/artifact/model.pkl
+!src/artifact/model_artifact_v1.pkl
+!src/artifact/preprocessor.pkl
+# Include metadata.json
+!src/artifact/metadata.json
+# Exclude other model formats
+*.joblib
+*.model
+*.h5
+*.hdf5
+
+# Node modules
+node_modules/
+fert-frontend/node_modules/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Test files
+tests/
+.coverage
+.pytest_cache/
+
+# Large files
+*.csv
+*.xlsx
+*.xls
+*.pdf
+*.zip
+*.tar.gz
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore

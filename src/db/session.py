@@ -3,11 +3,27 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import os
+import re
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://fert_user:fert_pass@127.0.0.1:5432/fertilizer_db"
-)
+def get_async_database_url():
+    """
+    Get database URL and ensure it uses asyncpg driver for async operations.
+    Railway provides DATABASE_URL in format: postgresql://user:pass@host:port/db
+    We need to convert it to: postgresql+asyncpg://user:pass@host:port/db
+    """
+    url = os.getenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db"
+    )
+    
+    # Convert postgresql:// to postgresql+asyncpg:// if no async driver specified
+    if url.startswith("postgresql://") and "+asyncpg" not in url and "+psycopg" not in url:
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        print(f"Converted DATABASE_URL to async format: {url[:50]}...")
+    
+    return url
+
+DATABASE_URL = get_async_database_url()
 
 engine = create_async_engine(
     DATABASE_URL,

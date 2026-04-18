@@ -29,10 +29,35 @@ if config.config_file_name is not None:
 # ---------------------------------------------------------
 # Your models are located here: src/db/models.py
 from src.db.models import Base
-from src.db.session import engine
 
 # Alembic needs metadata to detect schema changes
 target_metadata = Base.metadata
+
+# ---------------------------------------------------------
+# Database URL configuration
+# ---------------------------------------------------------
+def get_sync_database_url():
+    """
+    Get a synchronous database URL for Alembic migrations.
+    Uses DATABASE_URL environment variable, falling back to default.
+    Converts async drivers (psycopg, asyncpg) to sync driver (psycopg2).
+    """
+    import re
+    # Get DATABASE_URL from environment or use default from session.py
+    default_url = "postgresql+asyncpg://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db"
+    url = os.getenv("DATABASE_URL", default_url)
+    
+    # Convert async driver to sync driver (psycopg2)
+    # Replace postgresql+psycopg with postgresql+psycopg2
+    url = re.sub(r'postgresql\+psycopg:', 'postgresql+psycopg2:', url)
+    # Replace postgresql+asyncpg with postgresql+psycopg2
+    url = re.sub(r'postgresql\+asyncpg:', 'postgresql+psycopg2:', url)
+    # If no driver specified (postgresql://), keep as is (defaults to psycopg2)
+    return url
+
+# Override sqlalchemy.url in config with sync URL
+sync_url = get_sync_database_url()
+config.set_main_option('sqlalchemy.url', sync_url)
 
 
 # ---------------------------------------------------------

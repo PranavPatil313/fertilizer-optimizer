@@ -1,8 +1,6 @@
 # Fertilizer Optimizer - Docker Compose for Local Testing
 # Use this to test the full stack locally before cloud deployment
 
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -13,12 +11,12 @@ services:
       POSTGRES_PASSWORD: fertilizer_password
       POSTGRES_DB: fertilizer_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fertilizer_user"]
+      test: ["CMD-SHELL", "pg_isready -U fertilizer_user -d fertilizer_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,11 +34,13 @@ services:
         condition: service_healthy
     environment:
       # Database Configuration
-      DATABASE_URL: postgresql://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db
+      DATABASE_URL: postgresql+asyncpg://fertilizer_user:fertilizer_password@postgres:5432/fertilizer_db
       DATABASE_ECHO: "false"
       
       # Application Settings
       ENVIRONMENT: development
+      ENV: development
+      USE_GUNICORN: "true"
       SECRET_KEY: local-development-secret-key-change-in-production
       JWT_ALGORITHM: HS256
       JWT_EXPIRE_MINUTES: 60
@@ -91,7 +91,7 @@ services:
       VITE_API_KEY: test-api-key-12345
       VITE_ENVIRONMENT: development
     ports:
-      - "5173:5173"
+      - "5173:80"
     volumes:
       - ./fert-frontend:/app
       - /app/node_modules

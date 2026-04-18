@@ -4,7 +4,12 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Define a dummy tqdm function if tqdm is not available
+    def tqdm(iterable, *args, **kwargs):
+        return iterable
 from datetime import datetime
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, PolynomialFeatures

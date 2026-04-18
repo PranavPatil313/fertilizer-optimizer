@@ -8,10 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- CREATE ROLE fertilizer_readonly WITH LOGIN PASSWORD 'readonly_password' NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
 -- GRANT CONNECT ON DATABASE fertilizer_db TO fertilizer_readonly;
 
--- Set up schema and permissions
-\c fertilizer_db
-
--- Grant privileges to the main user
+-- Grant privileges to the main user (database is already created by POSTGRES_DB)
 GRANT ALL PRIVILEGES ON DATABASE fertilizer_db TO fertilizer_user;
 
 -- Create schema if using separate schema
