@@ -39,7 +39,7 @@ engine = create_async_engine(
     pool_pre_ping=True,  # Verify connections before using
     pool_recycle=3600,   # Recycle connections after 1 hour
     connect_args={
-        "connect_timeout": 10,  # 10 second connection timeout
+        "timeout": 10,  # 10 second connection timeout for asyncpg
     }
 )
 AsyncSessionLocal = sessionmaker(
