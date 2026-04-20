@@ -11,10 +11,10 @@ import { getWorkspaceVersion, subscribeWorkspaceUpdate } from "../utils/workspac
 
 function SummaryCard({ label, value, subtext }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-3xl font-semibold text-gray-900">{value}</p>
-      {subtext && <p className="text-sm text-gray-500">{subtext}</p>}
+    <div className="rounded-xl sm:rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm hover:shadow-md transition">
+      <p className="text-[10px] sm:text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-xl sm:text-3xl font-semibold text-gray-900 mt-1 break-words">{value}</p>
+      {subtext && <p className="text-xs sm:text-sm text-gray-500 mt-1">{subtext}</p>}
     </div>
   );
 }
@@ -104,11 +104,11 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl sm:rounded-2xl shadow-sm p-4 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-2">
           Sign in to unlock analytics
         </h2>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600">
           Log in or create an account to access saved plots, recommendations, and shareable reports.
         </p>
       </div>
@@ -116,22 +116,25 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-emerald-700 to-lime-600 rounded-3xl p-6 text-white shadow-lg">
-        <p className="text-sm uppercase tracking-widest text-emerald-100 mb-1">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="bg-gradient-to-r from-emerald-700 to-lime-600 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-lg">
+        <p className="text-[10px] sm:text-xs uppercase tracking-widest text-emerald-100 mb-2 sm:mb-1">
           Operations board
         </p>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 sm:gap-4">
           <div>
-            <h1 className="text-3xl font-semibold">
-              Welcome back, {user.email}
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold break-words">
+              Welcome back!
             </h1>
-            <p className="text-sm text-green-100 mt-1">
+            <p className="text-[11px] sm:text-sm text-green-100 mt-2 sm:mt-1">
+              {user.email}
+            </p>
+            <p className="text-xs sm:text-sm text-green-100 mt-2">
               Keep an eye on plots, predictions, and generated reports from this single view.
             </p>
           </div>
           <button
-            className="inline-flex items-center justify-center rounded-full bg-white/20 px-5 py-2 text-sm font-semibold backdrop-blur transition hover:bg-white/30"
+            className="inline-flex items-center justify-center rounded-lg sm:rounded-full bg-white/20 px-3 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm font-semibold backdrop-blur transition hover:bg-white/30 w-full sm:w-auto min-h-touch"
             onClick={() => window.open(`${API_URL}/docs`, "_blank")}
           >
             API Reference →
@@ -140,12 +143,12 @@ export default function Dashboard() {
       </div>
 
       {status.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg sm:rounded-xl border border-red-200 bg-red-50 p-3 sm:p-4 text-xs sm:text-sm text-red-700">
           {status.error}
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
         <SummaryCard
           label="Saved plots"
           value={status.loading ? "…" : plots.length}
@@ -160,10 +163,10 @@ export default function Dashboard() {
           label="Last activity"
           value={
             latestPrediction?.created_at
-              ? new Date(latestPrediction.created_at).toLocaleString()
+              ? new Date(latestPrediction.created_at).toLocaleDateString()
               : status.loading
               ? "Syncing…"
-              : "No predictions yet"
+              : "—"
           }
           subtext="Latest timestamp"
         />

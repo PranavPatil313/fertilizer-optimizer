@@ -127,34 +127,34 @@ export default function Recommend() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl bg-white shadow-sm border border-slate-100 p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <section className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Recommendation</p>
-            <h1 className="text-3xl font-semibold text-slate-900">Generate fertilizer plan</h1>
-            <p className="text-sm text-slate-500">
-              Crop: <span className="font-semibold">{input?.crop_type ?? "No plot selected"}</span>
+            <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] text-emerald-600">Recommendation</p>
+            <h1 className="text-lg sm:text-2xl lg:text-3xl font-semibold text-slate-900">Generate fertilizer plan</h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Crop: <span className="font-semibold break-words">{input?.crop_type ?? "No plot selected"}</span>
             </p>
           </div>
-          <div className="flex flex-col gap-2 md:flex-row">
+          <div className="flex flex-col gap-2 w-full">
             <button
               onClick={runRecommend}
               disabled={loading}
-              className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:opacity-70"
+              className="w-full sm:w-auto rounded-lg sm:rounded-full bg-emerald-600 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:opacity-70 transition min-h-touch"
             >
               {loading ? "Running…" : "Run recommendation"}
             </button>
             <button
               onClick={previewPdf}
-              className="rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+              className="w-full sm:w-auto rounded-lg sm:rounded-full border border-slate-200 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 transition min-h-touch"
             >
               Preview PDF
             </button>
           </div>
         </div>
         {error && (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+          <div className="mt-3 sm:mt-4 rounded-lg sm:rounded-2xl border border-red-200 bg-red-50 p-3 sm:p-4 text-xs sm:text-sm text-red-600">
             {error}
           </div>
         )}

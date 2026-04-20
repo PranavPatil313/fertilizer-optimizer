@@ -1,0 +1,72 @@
+/* Mobile-friendly form inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  font-size: 16px !important; /* Prevents iOS zoom on focus */
+  border-radius: 8px;
+}
+
+/* Touch-friendly button sizing */
+button,
+a {
+  min-height: 48px; /* iOS recommended touch target */
+  min-width: 48px;
+}
+
+/* Mobile viewport meta recommended */
+@media (max-width: 640px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Prevent double-tap zoom on buttons */
+  button,
+  a[role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Better mobile scrolling */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive typography */
+@media (max-width: 640px) {
+  h1 {
+    @apply text-lg sm:text-xl;
+  }
+
+  h2 {
+    @apply text-base sm:text-lg;
+  }
+
+  h3 {
+    @apply text-sm sm:text-base;
+  }
+
+  p {
+    @apply text-xs sm:text-sm;
+  }
+}
+
+/* Safe area support for notched devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}
