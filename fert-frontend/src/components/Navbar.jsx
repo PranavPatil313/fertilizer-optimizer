@@ -24,9 +24,9 @@ export default function Navbar() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 font-semibold text-slate-900 flex-shrink-0">
           <span className="text-xl sm:text-2xl">🌱</span>
-          <div className="hidden xs:block">
-            <p className="text-xs sm:text-sm uppercase tracking-widest text-emerald-600">Fertilizer</p>
-            <p className="-mt-1 text-sm sm:text-lg font-semibold">Optimizer</p>
+          <div>
+            <p className="text-[10px] sm:text-xs uppercase tracking-widest text-emerald-600">Fertilizer</p>
+            <p className="-mt-1 text-xs sm:text-lg font-semibold">Optimizer</p>
           </div>
         </Link>
 
