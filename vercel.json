@@ -1,17 +1,10 @@
 {
   "buildCommand": "cd fert-frontend && npm run build",
   "outputDirectory": "fert-frontend/dist",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(?!.*\\.)",
+      "destination": "/index.html"
     }
-  ],
-  "env": {
-    "VITE_API_URL": "@vite_api_url"
-  }
+  ]
 }
