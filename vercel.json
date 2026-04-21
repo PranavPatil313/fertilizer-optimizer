@@ -3,7 +3,7 @@
   "outputDirectory": "fert-frontend/dist",
   "rewrites": [
     {
-      "source": "/(?!.*\\.)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
