@@ -4,7 +4,8 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Optional
+import threading
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,14 @@ from src.db.models import Dataset, TrainingJob
 from src.db.session import AsyncSessionLocal
 from src.model_utils import ARTIFACT_DIR, refresh_artifact_cache
 from src.train_model import build_model, build_preprocessor
+
+
+class TrainingCancelledError(Exception):
+    """Raised when training is cancelled by user."""
+    pass
+
+# Global dictionary to track running jobs and their cancellation flags
+_running_jobs: Dict[int, threading.Event] = {}
 
 FEATURE_COLUMNS = [
     "crop_type",
@@ -34,19 +43,87 @@ FEATURE_COLUMNS = [
 TARGET_COLUMNS = ["N_kg_ha", "P_kg_ha", "K_kg_ha", "yield_kg_ha"]
 
 
-async def run_training_job(job_id: int):
+def _check_cancellation(job_id: int) -> bool:
+    """Check if job has been cancelled."""
+    event = _running_jobs.get(job_id)
+    if event and event.is_set():
+        return True
+    return False
+
+
+async def cancel_training_job(job_id: int) -> bool:
+    """Cancel a running training job."""
+    event = _running_jobs.get(job_id)
+    if not event:
+        return False  # Job not running
+    
+    event.set()  # Signal cancellation
+    
+    # Update database status
     async with AsyncSessionLocal() as session:
         job = await session.get(TrainingJob, job_id)
-        if not job:
-            return
-        job.status = "running"
-        job.started_at = datetime.utcnow()
-        job.log = "Preparing training datasets..."
-        await session.commit()
+        if job:
+            job.status = "cancelled"
+            job.finished_at = datetime.utcnow()
+            job.log = "Training cancelled by user"
+            await session.commit()
+    
+    # Clean up after a short delay
+    async def _cleanup():
+        await asyncio.sleep(2)
+        _running_jobs.pop(job_id, None)
+    
+    asyncio.create_task(_cleanup())
+    return True
 
+
+async def run_training_job(job_id: int):
+    # Create cancellation event for this job
+    cancel_event = threading.Event()
+    _running_jobs[job_id] = cancel_event
+    
     try:
+        async with AsyncSessionLocal() as session:
+            job = await session.get(TrainingJob, job_id)
+            if not job:
+                return
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            job.log = "Preparing training datasets..."
+            await session.commit()
+
+        # Check if cancelled before starting
+        if _check_cancellation(job_id):
+            async with AsyncSessionLocal() as session:
+                job = await session.get(TrainingJob, job_id)
+                if job:
+                    job.status = "cancelled"
+                    job.finished_at = datetime.utcnow()
+                    job.log = "Training cancelled before start"
+                    await session.commit()
+            return
+
         dataset_paths = await _collect_dataset_paths(job_id)
-        result = await asyncio.to_thread(_train_with_datasets, dataset_paths, job_id)
+        
+        # Pass cancellation check function to training
+        result = await asyncio.to_thread(
+            _train_with_datasets,
+            dataset_paths,
+            job_id,
+            lambda: _check_cancellation(job_id)
+        )
+        
+        # Check if cancelled during training
+        if _check_cancellation(job_id):
+            async with AsyncSessionLocal() as session:
+                job = await session.get(TrainingJob, job_id)
+                if job:
+                    job.status = "cancelled"
+                    job.finished_at = datetime.utcnow()
+                    job.log = "Training cancelled during execution"
+                    await session.commit()
+            return
+            
         async with AsyncSessionLocal() as session:
             job = await session.get(TrainingJob, job_id)
             if not job:
@@ -61,10 +138,18 @@ async def run_training_job(job_id: int):
             job = await session.get(TrainingJob, job_id)
             if not job:
                 return
-            job.status = "failed"
+            # If cancelled, don't mark as failed
+            if _check_cancellation(job_id):
+                job.status = "cancelled"
+                job.log = "Training cancelled with error"
+            else:
+                job.status = "failed"
+                job.log = f"Training failed: {exc}"
             job.finished_at = datetime.utcnow()
-            job.log = f"Training failed: {exc}"
             await session.commit()
+    finally:
+        # Clean up running job tracking
+        _running_jobs.pop(job_id, None)
 
 
 async def _collect_dataset_paths(job_id: int) -> List[str]:
@@ -88,16 +173,25 @@ async def _collect_dataset_paths(job_id: int) -> List[str]:
         return [d.processed_path for d in datasets]
 
 
-def _train_with_datasets(dataset_paths: List[str], job_id: int):
+def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_callback=None):
+    # Helper to check cancellation
+    def check_cancelled():
+        if is_cancelled_callback and is_cancelled_callback():
+            raise TrainingCancelledError("Training cancelled by user")
+    
     dfs = []
-    for path in dataset_paths:
+    for i, path in enumerate(dataset_paths):
+        check_cancelled()
         df = pd.read_csv(path)
         dfs.append(df)
+    
+    check_cancelled()
     data = pd.concat(dfs, ignore_index=True)
     missing = [col for col in FEATURE_COLUMNS + TARGET_COLUMNS if col not in data.columns]
     if missing:
         raise ValueError(f"Dataset missing required columns: {', '.join(missing)}")
 
+    check_cancelled()
     preprocessor, num_cols, cat_cols = build_preprocessor(data)
     X = data[FEATURE_COLUMNS]
     y = data[TARGET_COLUMNS]
@@ -107,6 +201,7 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int):
     models = {}
     metrics = {}
     for target in TARGET_COLUMNS:
+        check_cancelled()
         model = build_model()
         vector_y = y[target].values
         model.fit(X_transformed, vector_y)
@@ -115,6 +210,8 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int):
         rmse = float(np.sqrt(np.mean((preds - vector_y) ** 2)))
         metrics[target] = {"mae": mae, "rmse": rmse}
         models[target] = model
+    
+    check_cancelled()
 
     artifact_dir = Path(ARTIFACT_DIR).resolve()
     job_dir = artifact_dir / f"job_{job_id}_{int(datetime.utcnow().timestamp())}"

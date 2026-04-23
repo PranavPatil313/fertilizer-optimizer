@@ -10,7 +10,7 @@ from src.api.deps import require_admin
 from src.db.models import Dataset, Plot, Prediction, TrainingJob, User
 from src.db.session import AsyncSessionLocal
 from src.services.datasets import UPLOAD_DIR, ensure_dataset_dirs, preprocess_dataset, stream_upload_to_disk
-from src.services.training import run_training_job
+from src.services.training import run_training_job, cancel_training_job
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -302,4 +302,34 @@ async def admin_trigger_training(
 
     background_tasks.add_task(run_training_job, job.id)
     return _training_job_to_dict(job)
+
+
+@router.post("/training-jobs/{job_id}/cancel", status_code=200)
+async def admin_cancel_training_job(
+    job_id: int,
+    current_admin: dict = Depends(require_admin),
+):
+    """Cancel a running training job."""
+    # First check if job exists and is running
+    async with AsyncSessionLocal() as session:
+        job = await session.get(TrainingJob, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Training job not found")
+        
+        # Only allow cancelling if job is pending or running
+        if job.status not in ["pending", "running"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel job with status '{job.status}'"
+            )
+    
+    # Attempt to cancel via the training service
+    cancelled = await cancel_training_job(job_id)
+    if not cancelled:
+        raise HTTPException(
+            status_code=400,
+            detail="Job is not currently running or already cancelled"
+        )
+    
+    return {"status": "cancelled", "message": "Training job cancellation requested"}
 
