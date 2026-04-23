@@ -52,28 +52,30 @@ def _check_cancellation(job_id: int) -> bool:
 
 
 async def cancel_training_job(job_id: int) -> bool:
-    """Cancel a running training job."""
+    """Cancel a running or pending training job."""
     event = _running_jobs.get(job_id)
-    if not event:
-        return False  # Job not running
-    
-    event.set()  # Signal cancellation
+    if event:
+        event.set()  # Signal cancellation
     
     # Update database status
     async with AsyncSessionLocal() as session:
         job = await session.get(TrainingJob, job_id)
-        if job:
-            job.status = "cancelled"
-            job.finished_at = datetime.utcnow()
-            job.log = "Training cancelled by user"
-            await session.commit()
+        if not job:
+            return False  # Job not found
+        # Only allow cancelling if job is pending or running
+        if job.status not in ("pending", "running"):
+            return False  # Job already in a final state
+        job.status = "cancelled"
+        job.finished_at = datetime.utcnow()
+        job.log = "Training cancelled by user"
+        await session.commit()
     
     # Clean up after a short delay
-    async def _cleanup():
-        await asyncio.sleep(2)
-        _running_jobs.pop(job_id, None)
-    
-    asyncio.create_task(_cleanup())
+    if event:
+        async def _cleanup():
+            await asyncio.sleep(2)
+            _running_jobs.pop(job_id, None)
+        asyncio.create_task(_cleanup())
     return True
 
 
@@ -86,6 +88,11 @@ async def run_training_job(job_id: int):
         async with AsyncSessionLocal() as session:
             job = await session.get(TrainingJob, job_id)
             if not job:
+                _running_jobs.pop(job_id, None)
+                return
+            # If job already cancelled, exit early
+            if job.status == "cancelled":
+                _running_jobs.pop(job_id, None)
                 return
             job.status = "running"
             job.started_at = datetime.utcnow()
