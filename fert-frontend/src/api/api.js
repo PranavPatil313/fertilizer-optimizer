@@ -267,5 +267,12 @@ export async function triggerTrainingJob(payload) {
   return response.data;
 }
 
+export async function cancelTrainingJob(jobId) {
+  const response = await instance.post(`/admin/training-jobs/${jobId}/cancel`, null, {
+    headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
 // Default export is the axios instance for convenience (api.post, api.get, etc.)
 export default instance;

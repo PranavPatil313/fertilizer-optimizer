@@ -11,6 +11,7 @@ import {
   reprocessDataset,
   fetchTrainingJobs,
   triggerTrainingJob,
+  cancelTrainingJob,
   fetchAdminPlots,
   deleteAdminPlot,
   fetchAdminPredictions,
@@ -125,6 +126,18 @@ export default function AdminPanel() {
   async function refreshJobs() {
     const jb = await fetchTrainingJobs();
     setJobs(jb);
+  }
+
+  async function handleCancelJob(jobId) {
+    const confirmed = window.confirm("Cancel this training job? This will stop the training process.");
+    if (!confirmed) return;
+    try {
+      await cancelTrainingJob(jobId);
+      // Refresh jobs to show updated status
+      await refreshJobs();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Unable to cancel job");
+    }
   }
 
   async function handleUserRoleChange(userId, newRole) {
@@ -336,6 +349,7 @@ export default function AdminPanel() {
                   <th>Status</th>
                   <th>Datasets</th>
                   <th>Updated</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,11 +375,21 @@ export default function AdminPanel() {
                     <td className="py-2 text-slate-500 text-xs">
                       {job.finished_at || job.started_at || "—"}
                     </td>
+                    <td className="py-2">
+                      {(job.status === "running" || job.status === "pending") && (
+                        <button
+                          onClick={() => handleCancelJob(job.id)}
+                          className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {jobs.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-slate-500">
+                    <td colSpan={5} className="py-4 text-center text-slate-500">
                       No training jobs yet.
                     </td>
                   </tr>
