@@ -148,7 +148,7 @@ async def run_training_job(job_id: int):
             # If cancelled, don't mark as failed
             if _check_cancellation(job_id):
                 job.status = "cancelled"
-                job.log = "Training cancelled with error"
+                job.log = "Training cancelled by user"
             else:
                 job.status = "failed"
                 job.log = f"Training failed: {exc}"
@@ -163,20 +163,19 @@ async def _collect_dataset_paths(job_id: int) -> List[str]:
     async with AsyncSessionLocal() as session:
         job = await session.get(TrainingJob, job_id)
         if not job:
-            raise HTTPException(status_code=404, detail="Training job not found")
+            raise ValueError("Training job not found")
         ids = job.dataset_ids or []
+        if isinstance(ids, str):
+            ids = json.loads(ids)
         if not ids:
-            raise HTTPException(status_code=400, detail="No datasets selected")
+            raise ValueError("No datasets selected")
         result = await session.execute(select(Dataset).where(Dataset.id.in_(ids)))
         datasets = result.scalars().all()
         if len(datasets) != len(ids):
-            raise HTTPException(status_code=400, detail="One or more datasets missing")
+            raise ValueError("One or more datasets missing")
         missing = [d.id for d in datasets if d.status != "processed" or not d.processed_path]
         if missing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Datasets not processed: {', '.join(map(str, missing))}",
-            )
+            raise ValueError(f"Datasets not processed: {', '.join(map(str, missing))}")
         return [d.processed_path for d in datasets]
 
 
@@ -233,8 +232,8 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
     metadata = {
         "features": FEATURE_COLUMNS,
         "targets": TARGET_COLUMNS,
-        "num_cols": num_cols,
-        "cat_cols": cat_cols,
+        "num_cols": list(num_cols) if num_cols is not None else [],
+        "cat_cols": list(cat_cols) if cat_cols is not None else [],
         "scores": metrics,
         "created_at": datetime.utcnow().isoformat(),
         "notes": f"Retrained from admin job {job_id}",
@@ -255,4 +254,3 @@ def _publish_new_artifact(job_dir: Path):
             raise FileNotFoundError(f"Missing artifact file {filename}")
         shutil.copy2(src, target_dir / filename)
     refresh_artifact_cache()
-
