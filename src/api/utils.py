@@ -4,15 +4,7 @@ from ..carbon import compute_co2eq_from_npk
 import pandas as pd
 import numpy as np
 
-artifact = load_artifact()
-preproc = artifact["preprocessor"]
-models = artifact["model_bundle"]["models"]  # dict of models, one per target
-metadata = artifact["metadata"]
-num_cols = metadata.get("num_cols", [])
-cat_cols = metadata.get("cat_cols", [])
-target_cols = metadata.get("targets", ["N_kg_ha", "P_kg_ha", "K_kg_ha", "yield_kg_ha"])
-
-def _prepare_df_from_dict(d: dict):
+def _prepare_df_from_dict(d: dict, num_cols: list, cat_cols: list):
     # Create a copy to avoid modifying the original
     data = d.copy()
     
@@ -46,8 +38,16 @@ def predict_npk_and_yield(input_dict: dict):
     """
     Predict NPK requirements and yield, with agronomic validation.
     """
+    artifact = load_artifact()
+    preproc = artifact["preprocessor"]
+    models = artifact["model_bundle"]["models"]
+    metadata = artifact["metadata"]
+    num_cols = metadata.get("num_cols", [])
+    cat_cols = metadata.get("cat_cols", [])
+    target_cols = metadata.get("targets", ["N_kg_ha", "P_kg_ha", "K_kg_ha", "yield_kg_ha"])
+
     try:
-        df = _prepare_df_from_dict(input_dict)
+        df = _prepare_df_from_dict(input_dict, num_cols, cat_cols)
         Xp = preproc.transform(df)
         # Predict using each model for its target
         out = {}
@@ -131,7 +131,7 @@ def predict_npk_and_yield(input_dict: dict):
             retry_dict = input_dict.copy()
             ACRE_TO_HECTARE = 0.404686
             retry_dict['area_ha'] = float(retry_dict.pop('area_acre')) * ACRE_TO_HECTARE
-            df = _prepare_df_from_dict(retry_dict)
+            df = _prepare_df_from_dict(retry_dict, num_cols, cat_cols)
             Xp = preproc.transform(df)
             out = {}
             for target in target_cols:

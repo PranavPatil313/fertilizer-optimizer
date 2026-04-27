@@ -176,6 +176,14 @@ async def _collect_dataset_paths(job_id: int) -> List[str]:
         missing = [d.id for d in datasets if d.status != "processed" or not d.processed_path]
         if missing:
             raise ValueError(f"Datasets not processed: {', '.join(map(str, missing))}")
+            
+        # Verify the physical files actually survived on the disk
+        missing_on_disk = [d.name for d in datasets if not Path(d.processed_path).exists()]
+        if missing_on_disk:
+            raise FileNotFoundError(
+                f"Dataset missing from disk: {', '.join(missing_on_disk)}. Please delete from the UI and re-upload."
+            )
+            
         return [d.processed_path for d in datasets]
 
 

@@ -41,6 +41,7 @@ services:
       ENVIRONMENT: development
       ENV: development
       USE_GUNICORN: "true"
+      WORKERS: "1"
       SECRET_KEY: local-development-secret-key-change-in-production
       JWT_ALGORITHM: HS256
       JWT_EXPIRE_MINUTES: 60
