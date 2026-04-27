@@ -90,7 +90,7 @@ async def preprocess_dataset(dataset_id: int):
 def _run_preprocessing(source_path: Path, processed_path: Path):
     if not source_path.exists():
         raise FileNotFoundError(f"Dataset path missing: {source_path}")
-    df = pd.read_csv(source_path)
+    df = pd.read_csv(source_path, encoding="utf-8-sig")
     original_rows = len(df)
     df.columns = [col.strip() for col in df.columns]
     # Drop duplicate rows and empty records
