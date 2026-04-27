@@ -114,13 +114,15 @@ def _run_preprocessing(source_path: Path, processed_path: Path):
     # Convert target columns from kg/acre to kg/ha if they exist
     # Conversion factor: 1 hectare = 2.47105 acres, so kg/ha = kg/acre × 2.47105
     ACRE_TO_HECTARE = 2.47105
-    target_columns = ["N_kg_ha", "P_kg_ha", "K_kg_ha", "yield_kg_ha"]
+    target_ha_columns = ["N_kg_ha", "P_kg_ha", "K_kg_ha", "yield_kg_ha"]
     converted_cols = []
-    for col in target_columns:
-        if col in df.columns:
+    for ha_col in target_ha_columns:
+        acre_col = ha_col.replace("_kg_ha", "_kg_acre")
+        if acre_col in df.columns and ha_col not in df.columns:
             # Convert from kg/acre to kg/ha
-            df[col] = df[col] * ACRE_TO_HECTARE
-            converted_cols.append(col)
+            df[ha_col] = df[acre_col] * ACRE_TO_HECTARE
+            df = df.drop(columns=[acre_col])
+            converted_cols.append(ha_col)
 
     processed_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(processed_path, index=False)
@@ -139,4 +141,3 @@ async def fetch_dataset_or_404(dataset_id: int) -> Dataset:
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
         return dataset
-

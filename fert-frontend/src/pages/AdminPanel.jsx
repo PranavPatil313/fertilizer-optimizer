@@ -380,9 +380,15 @@ export default function AdminPanel() {
                               ? "bg-slate-100 text-slate-600"
                               : "bg-amber-50 text-amber-700"
                           }`}
+                          title={job.log}
                         >
                           {job.status}
                         </span>
+                        {job.status === "failed" && job.log && (
+                          <p className="mt-1 text-[10px] text-red-600 truncate max-w-[200px]" title={job.log}>
+                            {job.log}
+                          </p>
+                        )}
                       </td>
                       <td className="py-2 text-slate-600 text-xs">
                         {getDatasetNames(job.dataset_ids)}
@@ -550,4 +556,3 @@ export default function AdminPanel() {
     </div>
   );
 }
-
