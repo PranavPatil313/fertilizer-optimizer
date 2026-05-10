@@ -57,10 +57,18 @@ if [[ "$DATABASE_URL" == postgres://* ]]; then
     echo "🔧 Updated DATABASE_URL scheme to postgresql://"
 fi
 
+# Ensure ASYNC_DATABASE_URL is set for SQLAlchemy AsyncEngine
+if [[ -z "$ASYNC_DATABASE_URL" && -n "$DATABASE_URL" ]]; then
+    export ASYNC_DATABASE_URL="${DATABASE_URL/postgresql:\/\//postgresql+asyncpg:\/\/}"
+    echo "🔧 Auto-configured ASYNC_DATABASE_URL for FastAPI async connection"
+fi
+
 # Database migration (if needed)
-if [ "$RUN_MIGRATIONS" = "true" ] || [ "$ENV" = "production" ]; then
-    echo "🗄️  Running database migrations..."
-    alembic upgrade head || echo "⚠️ Alembic migration failed, continuing anyway..."
+# Disabled by default. Alembic can hang indefinitely on Railway if the DB connects slowly.
+# Your FastAPI main.py already runs Base.metadata.create_all() safely!
+if [ "$RUN_MIGRATIONS" = "true" ]; then
+    echo "🗄️  Running database migrations with timeout..."
+    timeout 15s alembic upgrade head || echo "⚠️ Alembic migration skipped or timed out."
 fi
 
 # Create necessary directories
