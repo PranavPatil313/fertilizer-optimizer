@@ -51,11 +51,16 @@ export DEBUG=${DEBUG:-false}
 echo "🌍 Environment: $ENV"
 echo "🐛 Debug mode: $DEBUG"
 
+# Fix SQLAlchemy postgres:// vs postgresql:// scheme issue common on Railway
+if [[ "$DATABASE_URL" == postgres://* ]]; then
+    export DATABASE_URL="${DATABASE_URL/postgres:\/\//postgresql:\/\/}"
+    echo "🔧 Updated DATABASE_URL scheme to postgresql://"
+fi
+
 # Database migration (if needed)
 if [ "$RUN_MIGRATIONS" = "true" ] || [ "$ENV" = "production" ]; then
     echo "🗄️  Running database migrations..."
-    alembic upgrade head
-    echo "✅ Database migrations completed"
+    alembic upgrade head || echo "⚠️ Alembic migration failed, continuing anyway..."
 fi
 
 # Create necessary directories
@@ -92,7 +97,8 @@ if [ "$USE_GUNICORN" = "true" ] || [ "$ENV" = "production" ]; then
             --timeout 120 \
             --keep-alive 5 \
             --access-logfile - \
-            --error-logfile -
+            --error-logfile - \
+            --forwarded-allow-ips="*"
     else
         echo "⚠️  Gunicorn not found, falling back to Uvicorn..."
         echo "🔧 Starting with Uvicorn (production fallback)..."
@@ -100,6 +106,8 @@ if [ "$USE_GUNICORN" = "true" ] || [ "$ENV" = "production" ]; then
             --host $HOST \
             --port $PORT \
             --workers $WORKERS \
+            --proxy-headers \
+            --forwarded-allow-ips="*" \
             --log-level info
     fi
 else
