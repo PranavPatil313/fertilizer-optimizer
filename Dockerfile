@@ -27,26 +27,20 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies including build tools for Python packages
+# Install minimum runtime dependencies
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     curl \
-    gcc \
-    g++ \
     && rm -rf /var/lib/apt/lists/*
     
-# Install Python packages directly in runtime stage to ensure gunicorn is available
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy Python dependencies from builder
+# (Must happen as root BEFORE switching to appuser to avoid permission errors)
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
-
-# Copy Python dependencies from builder
-# Copy the entire Python site-packages from builder
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=appuser:appuser . .

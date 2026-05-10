@@ -76,7 +76,9 @@ fi
 echo "⚡ Starting FastAPI server with Uvicorn..."
 
 # Production settings
-WORKERS=${WORKERS:-4}
+# Reduce workers to 1 to prevent Railway Out-Of-Memory (OOM) crashes
+# ML libraries (Pandas/Scikit) use heavy RAM per worker process
+WORKERS=${WORKERS:-1}
 HOST=${HOST:-0.0.0.0}
 PORT=${PORT:-8000}
 
