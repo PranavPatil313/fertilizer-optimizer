@@ -94,32 +94,16 @@ echo "👥 Workers: $WORKERS"
 echo "🌐 Host: $HOST"
 echo "🔌 Port: $PORT"
 
-# Start Gunicorn with Uvicorn workers for production
-# Use this for production deployment with multiple workers
-if [ "$USE_GUNICORN" = "true" ] || [ "$ENV" = "production" ]; then
-    # Check if gunicorn is available
-    if command -v gunicorn >/dev/null 2>&1; then
-        echo "🚀 Starting with Gunicorn (production mode)..."
-        exec gunicorn src.api.main:app \
-            --workers $WORKERS \
-            --worker-class uvicorn.workers.UvicornWorker \
-            --bind $HOST:$PORT \
-            --timeout 120 \
-            --keep-alive 5 \
-            --access-logfile - \
-            --error-logfile - \
-            --forwarded-allow-ips="*"
-    else
-        echo "⚠️  Gunicorn not found, falling back to Uvicorn..."
-        echo "🔧 Starting with Uvicorn (production fallback)..."
-        exec uvicorn src.api.main:app \
-            --host $HOST \
-            --port $PORT \
-            --workers $WORKERS \
-            --proxy-headers \
-            --forwarded-allow-ips="*" \
-            --log-level info
-    fi
+if [ "$ENV" = "production" ]; then
+    echo "🚀 Starting with Uvicorn directly for better error logging..."
+    # We avoid Gunicorn because it often hides immediate startup crash logs
+    exec uvicorn src.api.main:app \
+        --host $HOST \
+        --port $PORT \
+        --workers $WORKERS \
+        --proxy-headers \
+        --forwarded-allow-ips="*" \
+        --log-level info
 else
     # Development mode with single worker
     echo "🔧 Starting with Uvicorn (development mode)..."
