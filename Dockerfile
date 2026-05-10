@@ -25,6 +25,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ========== Stage 2: Runtime ==========
 FROM python:3.12-slim AS runtime
 
+# Force Python to print logs immediately (prevents silent crashes)
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 # Install minimum runtime dependencies
@@ -52,10 +55,6 @@ RUN mkdir -p src/artifact src/data/uploads src/data/processed
 RUN sed -i 's/\r$//' start_production.sh
 # Make startup script executable
 RUN chmod +x start_production.sh
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/ || exit 1
 
 # Expose port
 EXPOSE 8000
