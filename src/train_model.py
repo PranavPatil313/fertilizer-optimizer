@@ -27,6 +27,39 @@ warnings.filterwarnings("ignore")
 RND = 42
 np.random.seed(RND)
 
+# --- Live Database Logging Setup ---
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+def get_sync_db_url():
+    url = os.getenv("DATABASE_URL", "sqlite:///./fertilizer.db")
+    # Convert asyncpg to standard sync postgresql for background thread execution
+    if url.startswith("postgresql+asyncpg://"):
+        return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    return url
+
+db_url = get_sync_db_url()
+connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
+sync_engine = create_engine(db_url, pool_pre_ping=True, connect_args=connect_args)
+SyncSession = sessionmaker(bind=sync_engine)
+
+def update_db_progress(job_id, log_str):
+    if not job_id:
+        return
+    try:
+        with SyncSession() as session:
+            # Append log to the database (handle common table names for TrainingJob)
+            try:
+                session.execute(text("UPDATE training_jobs SET log = COALESCE(log, '') || '\n' || :log WHERE id = :id"), {"log": log_str, "id": job_id})
+                session.commit()
+            except Exception:
+                session.rollback()
+                session.execute(text("UPDATE trainingjob SET log = COALESCE(log, '') || '\n' || :log WHERE id = :id"), {"log": log_str, "id": job_id})
+                session.commit()
+    except Exception as e:
+        print(f"DB Log Update Error: {e}")
+# -----------------------------------
+
 # ------------- 1) Synthetic dataset generator -------------
 def generate_synthetic_dataset(n=5000, random_state=RND):
     rng = np.random.RandomState(random_state)
@@ -156,9 +189,12 @@ def build_model():
     return stack
 
 # ------------- 4) Train separate models for each target using same preprocessor -------------
-def train_and_save(artifact_dir="artifact", n_samples=5000):
-    print("PROGRESS: 5%", flush=True)
-    print("Generating synthetic dataset...")
+def train_and_save(artifact_dir="artifact", n_samples=5000, job_id=None):
+    def _log(msg):
+        print(msg, flush=True)
+        update_db_progress(job_id, msg)
+
+    _log("PROGRESS: 5%\nGenerating synthetic dataset...")
     df = generate_synthetic_dataset(n=n_samples)
 
     # features and targets
@@ -176,8 +212,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.12, random_state=RND)
 
     # Fit preprocessor on training
-    print("PROGRESS: 15%", flush=True)
-    print("Fitting preprocessor...")
+    _log("PROGRESS: 15%\nFitting preprocessor...")
     preprocessor.fit(X_train)
 
     # Transform
@@ -191,8 +226,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
     scores = {}
     for i, target in enumerate(TARGETS):
         current_progress = 20 + int((i / len(TARGETS)) * 70)
-        print(f"PROGRESS: {current_progress}%", flush=True)
-        print(f"\nTraining model for target: {target}")
+        _log(f"PROGRESS: {current_progress}%\nTraining model for target: {target}")
         y_tr = y_train[target].values
         y_te = y_test[target].values
 
@@ -212,8 +246,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
 
     # Save artifacts
     os.makedirs(artifact_dir, exist_ok=True)
-    print("PROGRESS: 95%", flush=True)
-    print("\nSaving artifacts...")
+    _log("PROGRESS: 95%\nSaving artifacts...")
 
     # Save a dict-of-models structure
     model_bundle = {"models": models, "created_at": datetime.utcnow().isoformat()}
@@ -232,8 +265,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
     with open(os.path.join(artifact_dir, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print("PROGRESS: 100%", flush=True)
-    print("Artifacts saved to:", os.path.abspath(artifact_dir))
+    _log("PROGRESS: 100%\nArtifacts saved to: " + os.path.abspath(artifact_dir))
     return artifact_dir, metadata
 
 if __name__ == "__main__":

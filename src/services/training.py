@@ -15,7 +15,7 @@ from sqlalchemy import select
 from src.db.models import Dataset, TrainingJob
 from src.db.session import AsyncSessionLocal
 from src.model_utils import ARTIFACT_DIR, refresh_artifact_cache
-from src.train_model import build_model, build_preprocessor
+from src.train_model import build_model, build_preprocessor, update_db_progress
 
 
 class TrainingCancelledError(Exception):
@@ -67,7 +67,7 @@ async def cancel_training_job(job_id: int) -> bool:
             return False  # Job already in a final state
         job.status = "cancelled"
         job.finished_at = datetime.utcnow()
-        job.log = "Training cancelled by user"
+        job.log = f"{job.log or ''}\nTraining cancelled by user".strip()
         await session.commit()
     
     # Clean up after a short delay
@@ -138,7 +138,7 @@ async def run_training_job(job_id: int):
             job.status = "completed"
             job.artifact_path = result["artifact_dir"]
             job.finished_at = datetime.utcnow()
-            job.log = result["log"]
+            job.log = f"{job.log or ''}\n{result['log']}".strip()
             await session.commit()
     except Exception as exc:  # noqa: BLE001
         async with AsyncSessionLocal() as session:
@@ -148,10 +148,10 @@ async def run_training_job(job_id: int):
             # If cancelled, don't mark as failed
             if _check_cancellation(job_id):
                 job.status = "cancelled"
-                job.log = "Training cancelled by user"
+                job.log = f"{job.log or ''}\nTraining cancelled by user".strip()
             else:
                 job.status = "failed"
-                job.log = f"Training failed: {exc}"
+                job.log = f"{job.log or ''}\nTraining failed: {exc}".strip()
             job.finished_at = datetime.utcnow()
             await session.commit()
     finally:
@@ -188,11 +188,16 @@ async def _collect_dataset_paths(job_id: int) -> List[str]:
 
 
 def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_callback=None):
+    def _log(msg):
+        print(msg, flush=True)
+        update_db_progress(job_id, msg)
+
     # Helper to check cancellation
     def check_cancelled():
         if is_cancelled_callback and is_cancelled_callback():
             raise TrainingCancelledError("Training cancelled by user")
     
+    _log("PROGRESS: 5%\nLoading datasets...")
     dfs = []
     for i, path in enumerate(dataset_paths):
         check_cancelled()
@@ -205,6 +210,7 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
     if missing:
         raise ValueError(f"Dataset missing required columns: {', '.join(missing)}")
 
+    _log("PROGRESS: 15%\nFitting preprocessor...")
     check_cancelled()
     preprocessor, num_cols, cat_cols = build_preprocessor(data)
     X = data[FEATURE_COLUMNS]
@@ -214,8 +220,10 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
 
     models = {}
     metrics = {}
-    for target in TARGET_COLUMNS:
+    for i, target in enumerate(TARGET_COLUMNS):
         check_cancelled()
+        current_progress = 20 + int((i / len(TARGET_COLUMNS)) * 70)
+        _log(f"PROGRESS: {current_progress}%\nTraining model for target: {target}")
         model = build_model()
         vector_y = y[target].values
         model.fit(X_transformed, vector_y)
@@ -227,6 +235,7 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
     
     check_cancelled()
 
+    _log("PROGRESS: 95%\nSaving artifacts...")
     artifact_dir = Path(ARTIFACT_DIR).resolve()
     job_dir = artifact_dir / f"job_{job_id}_{int(datetime.utcnow().timestamp())}"
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -250,6 +259,7 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
         json.dump(metadata, fh, indent=2)
 
     _publish_new_artifact(job_dir)
+    _log("PROGRESS: 100%\nTraining completed successfully.")
     log = f"Training completed with {len(data)} records across {len(dataset_paths)} dataset(s)."
     return {"artifact_dir": str(job_dir), "metadata": metadata, "log": log}
 
