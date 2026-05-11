@@ -157,7 +157,7 @@ def build_model():
 
 # ------------- 4) Train separate models for each target using same preprocessor -------------
 def train_and_save(artifact_dir="artifact", n_samples=5000):
-    print("PROGRESS: 5%")
+    print("PROGRESS: 5%", flush=True)
     print("Generating synthetic dataset...")
     df = generate_synthetic_dataset(n=n_samples)
 
@@ -176,7 +176,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.12, random_state=RND)
 
     # Fit preprocessor on training
-    print("PROGRESS: 15%")
+    print("PROGRESS: 15%", flush=True)
     print("Fitting preprocessor...")
     preprocessor.fit(X_train)
 
@@ -191,7 +191,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
     scores = {}
     for i, target in enumerate(TARGETS):
         current_progress = 20 + int((i / len(TARGETS)) * 70)
-        print(f"PROGRESS: {current_progress}%")
+        print(f"PROGRESS: {current_progress}%", flush=True)
         print(f"\nTraining model for target: {target}")
         y_tr = y_train[target].values
         y_te = y_test[target].values
@@ -212,7 +212,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
 
     # Save artifacts
     os.makedirs(artifact_dir, exist_ok=True)
-    print("PROGRESS: 95%")
+    print("PROGRESS: 95%", flush=True)
     print("\nSaving artifacts...")
 
     # Save a dict-of-models structure
@@ -232,7 +232,7 @@ def train_and_save(artifact_dir="artifact", n_samples=5000):
     with open(os.path.join(artifact_dir, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print("PROGRESS: 100%")
+    print("PROGRESS: 100%", flush=True)
     print("Artifacts saved to:", os.path.abspath(artifact_dir))
     return artifact_dir, metadata
 
