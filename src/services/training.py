@@ -206,6 +206,11 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
     
     check_cancelled()
     data = pd.concat(dfs, ignore_index=True)
+    
+    # Enforce minimum row count for StackingRegressor's 5-fold CV
+    if len(data) < 10:
+        raise ValueError(f"Dataset is too small ({len(data)} rows). At least 10 rows are required for cross-validation.")
+        
     missing = [col for col in FEATURE_COLUMNS + TARGET_COLUMNS if col not in data.columns]
     if missing:
         raise ValueError(f"Dataset missing required columns: {', '.join(missing)}")
