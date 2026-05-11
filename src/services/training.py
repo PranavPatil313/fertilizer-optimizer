@@ -228,7 +228,7 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
     for i, target in enumerate(TARGET_COLUMNS):
         check_cancelled()
         current_progress = 20 + int((i / len(TARGET_COLUMNS)) * 70)
-        _log(f"PROGRESS: {current_progress}%\nTraining model for target: {target}")
+        _log(f"PROGRESS: {current_progress}%\nTraining model for target: {target} (This takes a moment...)")
         model = build_model()
         vector_y = y[target].values
         model.fit(X_transformed, vector_y)
@@ -237,6 +237,7 @@ def _train_with_datasets(dataset_paths: List[str], job_id: int, is_cancelled_cal
         rmse = float(np.sqrt(np.mean((preds - vector_y) ** 2)))
         metrics[target] = {"mae": mae, "rmse": rmse}
         models[target] = model
+        _log(f"Successfully finished {target}! (MAE: {mae:.2f})")
     
     check_cancelled()
 

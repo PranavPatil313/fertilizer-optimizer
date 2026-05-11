@@ -174,9 +174,9 @@ def build_preprocessor(df):
 # ------------- 3) Build model (stacked ensemble) -------------
 def build_model():
     # base learners
-    cat = CatBoostRegressor(verbose=0, random_state=RND, iterations=800, depth=6, learning_rate=0.05)
-    xgb_model = xgb.XGBRegressor(n_estimators=500, max_depth=6, learning_rate=0.05, random_state=RND, verbosity=0, n_jobs=2)
-    rf  = RandomForestRegressor(n_estimators=300, max_depth=14, random_state=RND, n_jobs=2)
+    cat = CatBoostRegressor(verbose=0, random_state=RND, iterations=250, depth=6, learning_rate=0.05)
+    xgb_model = xgb.XGBRegressor(n_estimators=150, max_depth=6, learning_rate=0.05, random_state=RND, verbosity=0, n_jobs=2)
+    rf  = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=RND, n_jobs=2)
 
     estimators = [
         ("catboost", cat),
