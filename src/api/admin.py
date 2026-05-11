@@ -1,4 +1,5 @@
 import uuid
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -34,16 +35,31 @@ def _dataset_to_dict(dataset: Dataset):
 
 
 def _training_job_to_dict(job: TrainingJob):
+    progress = 0
+    if job.status == "completed":
+        progress = 100
+    elif job.status == "pending":
+        progress = 0
+    elif job.log:
+        matches = re.findall(r"PROGRESS:\s*(\d+)%", job.log)
+        if matches:
+            try:
+                progress = int(matches[-1])
+            except ValueError:
+                pass
+
     return {
         "id": job.id,
         "model_name": job.model_name,
         "dataset_ids": job.dataset_ids,
         "status": job.status,
+        "progress": progress,
         "log": job.log,
         "artifact_path": job.artifact_path,
         "triggered_by": job.triggered_by,
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
     }
 
 

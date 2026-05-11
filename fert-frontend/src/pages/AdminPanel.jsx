@@ -75,6 +75,17 @@ export default function AdminPanel() {
     }
   }
 
+  // Auto-poll if there are any active training jobs
+  useEffect(() => {
+    const hasActiveJobs = jobs.some((j) => j.status === "pending" || j.status === "running");
+    if (!hasActiveJobs) return;
+    
+    const intervalId = setInterval(() => {
+      refreshJobs();
+    }, 2000); // 2-second polling for smooth progress
+    return () => clearInterval(intervalId);
+  }, [jobs]);
+
   async function handleDatasetUpload(event) {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
@@ -390,12 +401,33 @@ export default function AdminPanel() {
                               ? "bg-red-50 text-red-700"
                               : job.status === "cancelled"
                               ? "bg-slate-100 text-slate-600"
+                              : job.status === "running"
+                              ? "bg-blue-50 text-blue-700"
                               : "bg-amber-50 text-amber-700"
                           }`}
                           title={job.log}
                         >
                           {job.status}
                         </span>
+                        {(job.status === "running" || job.status === "pending") && typeof job.progress === "number" && (
+                          <div className="w-full mt-2 min-w-[120px]">
+                            <div className="flex justify-between text-[10px] mb-1 text-slate-500 font-medium">
+                              <span>Progress</span>
+                              <span>{job.progress}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden relative">
+                              <div 
+                                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-700 ease-out"
+                                style={{ width: `${job.progress}%` }}
+                              >
+                                {/* Animated pulse overlay when running */}
+                                {job.status === "running" && (
+                                  <div className="absolute inset-0 bg-white/30 animate-pulse rounded-full" style={{ width: `${job.progress}%` }}></div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         {job.status === "failed" && job.log && (
                           <p className="mt-1 text-[10px] text-red-600 truncate max-w-[200px]" title={job.log}>
                             {job.log}
