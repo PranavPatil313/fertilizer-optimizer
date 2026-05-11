@@ -12,6 +12,7 @@ import {
   fetchTrainingJobs,
   triggerTrainingJob,
   cancelTrainingJob,
+  deleteTrainingJob,
   fetchAdminPlots,
   deleteAdminPlot,
   fetchAdminPredictions,
@@ -138,6 +139,17 @@ export default function AdminPanel() {
       await refreshJobs();
     } catch (err) {
       setError(err.response?.data?.detail || err.message || "Unable to cancel job");
+    }
+  }
+
+  async function handleDeleteJob(jobId) {
+    const confirmed = window.confirm("Delete this training job history? This cannot be undone.");
+    if (!confirmed) return;
+    try {
+      await deleteTrainingJob(jobId);
+      await refreshJobs();
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Unable to delete job");
     }
   }
 
@@ -396,13 +408,21 @@ export default function AdminPanel() {
                       <td className="py-2 text-slate-500 text-xs">
                         {job.finished_at || job.started_at || "—"}
                       </td>
-                      <td className="py-2">
+                      <td className="py-2 space-x-2">
                         {(job.status === "running" || job.status === "pending") && (
                           <button
                             onClick={() => handleCancelJob(job.id)}
-                            className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                            className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100"
                           >
                             Cancel
+                          </button>
+                        )}
+                        {(job.status === "failed" || job.status === "cancelled" || job.status === "completed") && (
+                          <button
+                            onClick={() => handleDeleteJob(job.id)}
+                            className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                          >
+                            Delete
                           </button>
                         )}
                       </td>

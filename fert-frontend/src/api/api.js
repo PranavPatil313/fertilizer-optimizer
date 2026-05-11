@@ -274,5 +274,12 @@ export async function cancelTrainingJob(jobId) {
   return response.data;
 }
 
+export async function deleteTrainingJob(jobId) {
+  const response = await instance.delete(`/admin/training-jobs/${jobId}`, {
+    headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
 // Default export is the axios instance for convenience (api.post, api.get, etc.)
 export default instance;

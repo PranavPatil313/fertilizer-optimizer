@@ -333,3 +333,25 @@ async def admin_cancel_training_job(
     
     return {"status": "cancelled", "message": "Training job cancellation requested"}
 
+
+@router.delete("/training-jobs/{job_id}", status_code=200)
+async def admin_delete_training_job(
+    job_id: int,
+    current_admin: dict = Depends(require_admin),
+):
+    """Delete a failed, cancelled, or completed training job history."""
+    async with AsyncSessionLocal() as session:
+        job = await session.get(TrainingJob, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Training job not found")
+        
+        if job.status in ["pending", "running"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete a running or pending job. Cancel it first."
+            )
+        
+        await session.delete(job)
+        await session.commit()
+        
+    return {"status": "deleted", "message": "Training job deleted successfully"}
