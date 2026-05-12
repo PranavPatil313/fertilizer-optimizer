@@ -27,7 +27,7 @@ function StatCard({ label, value, tone = "emerald", delay = "0ms" }) {
   };
   return (
     <div 
-      className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm opacity-0 animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default flex flex-col justify-center"
+      className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm opacity-0 animate-zoom-in transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default flex flex-col justify-center"
       style={{ animationDelay: delay }}
     >
       <p className="text-[10px] sm:text-xs uppercase tracking-wide text-slate-500">{label}</p>
@@ -219,6 +219,26 @@ export default function AdminPanel() {
     setPlots(pl);
   }
 
+  async function handleTriggerReports() {
+    const confirmed = window.confirm("Send weekly summary emails to all active users?");
+    if (!confirmed) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiBase}/admin/trigger-weekly-reports`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Failed to trigger reports");
+      }
+      alert("Weekly reports triggered successfully! Check server logs for the email stubs.");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   const processedReadyCount = useMemo(
     () => datasets.filter((ds) => ds.status === "processed" && ds.processed_path).length,
     [datasets]
@@ -239,7 +259,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto w-full space-y-6 sm:space-y-8 pb-10 pt-4 sm:pt-6">
       <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(20px) scale(0.98); }
@@ -255,10 +275,26 @@ export default function AdminPanel() {
         .animate-fade-in-right {
           animation: fadeInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+        @keyframes zoomIn {
+          0% { opacity: 0; transform: scale(0.95); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-zoom-in {
+          animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradientShift 8s ease infinite;
+        }
       `}</style>
 
       <div 
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white shadow-xl opacity-0 animate-fade-in-up transition-all duration-500 hover:shadow-2xl"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white shadow-xl opacity-0 animate-fade-in-up animate-gradient transition-all duration-500 hover:shadow-2xl"
         style={{ animationDelay: "0ms" }}
       >
         <p className="text-xs uppercase tracking-[0.3em] text-slate-300">Admin Control</p>
@@ -266,6 +302,14 @@ export default function AdminPanel() {
         <p className="mt-2 text-sm text-slate-300 max-w-2xl">
           Manage datasets, trigger ML training jobs, oversee users, plots, and predictions.
         </p>
+        <div className="absolute top-6 right-6 sm:top-8 sm:right-8 z-10">
+          <button 
+            onClick={handleTriggerReports}
+            className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur px-4 py-2 text-sm font-semibold text-white transition-all shadow-sm flex items-center gap-2"
+          >
+            <span className="text-lg">📧</span> <span className="hidden sm:inline">Send Weekly Reports</span>
+          </button>
+        </div>
         {/* Subtle decorative glow */}
         <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
       </div>
@@ -291,8 +335,16 @@ export default function AdminPanel() {
         <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <h2 className="text-lg font-semibold text-slate-900">Datasets</h2>
-            <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-md active:scale-95 text-center">
-              {uploading ? "Uploading…" : "Upload CSV"}
+            <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-md active:scale-95 flex items-center justify-center gap-2">
+              {uploading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  Uploading…
+                </>
+              ) : "Upload CSV"}
               <input
                 type="file"
                 className="hidden"

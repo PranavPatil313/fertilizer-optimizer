@@ -1,27 +1,29 @@
 # src/api/schemas.py
-from pydantic import BaseModel
-from typing import Dict
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
 
 class PlotInput(BaseModel):
+    plot_name: Optional[str] = None
     crop_type: str
     soil_type: str 
     region: str
-    avg_temp: float
-    rainfall_mm: float
-    crop_duration_days: int
-    soil_N: float
-    soil_P: float
-    soil_K: float
-    pH: float
-    organic_matter_pct: float
+    avg_temp: float = Field(..., ge=-20, le=60)
+    rainfall_mm: float = Field(..., ge=0)
+    crop_duration_days: int = Field(..., ge=1, le=730)
+    soil_N: float = Field(..., ge=0)
+    soil_P: float = Field(..., ge=0)
+    soil_K: float = Field(..., ge=0)
+    pH: float = Field(..., ge=0, le=14)
+    organic_matter_pct: float = Field(..., ge=0, le=100)
     irrigation_type: str
-    area_acre: float
+    area_acre: float = Field(..., gt=0)
 
 class PredictResponse(BaseModel):
     N_kg_ha: float
     P_kg_ha: float
     K_kg_ha: float
     yield_kg_ha: float
+    insights: List[str] = []
 
 class SoilHealthResponse(BaseModel):
     soil_health_index: float
@@ -29,3 +31,6 @@ class SoilHealthResponse(BaseModel):
 
 class CarbonResponse(BaseModel):
     co2eq_kg_ha: float
+
+class FeedbackInput(BaseModel):
+    actual_yield_kg_ha: float

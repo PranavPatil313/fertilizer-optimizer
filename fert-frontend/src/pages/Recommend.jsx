@@ -214,11 +214,19 @@ export default function Recommend() {
   const [error, setError] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  const [unit, setUnit] = useState(() => localStorage.getItem("pref_unit") || "acre");
+  useEffect(() => {
+    const handler = () => setUnit(localStorage.getItem("pref_unit") || "acre");
+    window.addEventListener("unitChange", handler);
+    return () => window.removeEventListener("unitChange", handler);
+  }, []);
+
   const primaryStats = useMemo(() => {
     if (!response?.predictions) return [];
 
     const blend = response.fertilizer_blend;
     const products = blend?.products || [];
+    const isHa = unit === "ha";
 
     // Try to show Urea/DAP/MOP first (product-based view)
     if (products.length) {
@@ -232,35 +240,35 @@ export default function Recommend() {
       return [
         {
           label: "Urea (46-0-0)",
-          value: urea?.rate_kg_acre ?? null,
-          unit: "kg/acre",
+          value: isHa ? urea?.rate_kg_ha : urea?.rate_kg_acre ?? null,
+          unit: isHa ? "kg/ha" : "kg/acre",
         },
         {
           label: "DAP (18-46-0)",
-          value: dap?.rate_kg_acre ?? null,
-          unit: "kg/acre",
+          value: isHa ? dap?.rate_kg_ha : dap?.rate_kg_acre ?? null,
+          unit: isHa ? "kg/ha" : "kg/acre",
         },
         {
           label: "MOP (0-0-60)",
-          value: mop?.rate_kg_acre ?? null,
-          unit: "kg/acre",
+          value: isHa ? mop?.rate_kg_ha : mop?.rate_kg_acre ?? null,
+          unit: isHa ? "kg/ha" : "kg/acre",
         },
         {
           label: "Expected yield",
-          value: kgHaToKgAcre(response.predictions.yield_kg_ha),
-          unit: "kg/acre",
+          value: isHa ? response.predictions.yield_kg_ha : kgHaToKgAcre(response.predictions.yield_kg_ha),
+          unit: isHa ? "kg/ha" : "kg/acre",
         },
       ];
     }
 
     // Fallback: original NPK view if blend is missing
     return [
-      { label: "Nitrogen (N)", value: kgHaToKgAcre(response.predictions.N_kg_ha), unit: "kg/acre" },
-      { label: "Phosphorus (P)", value: kgHaToKgAcre(response.predictions.P_kg_ha), unit: "kg/acre" },
-      { label: "Potassium (K)", value: kgHaToKgAcre(response.predictions.K_kg_ha), unit: "kg/acre" },
-      { label: "Expected yield", value: kgHaToKgAcre(response.predictions.yield_kg_ha), unit: "kg/acre" },
+      { label: "Nitrogen (N)", value: isHa ? response.predictions.N_kg_ha : kgHaToKgAcre(response.predictions.N_kg_ha), unit: isHa ? "kg/ha" : "kg/acre" },
+      { label: "Phosphorus (P)", value: isHa ? response.predictions.P_kg_ha : kgHaToKgAcre(response.predictions.P_kg_ha), unit: isHa ? "kg/ha" : "kg/acre" },
+      { label: "Potassium (K)", value: isHa ? response.predictions.K_kg_ha : kgHaToKgAcre(response.predictions.K_kg_ha), unit: isHa ? "kg/ha" : "kg/acre" },
+      { label: "Expected yield", value: isHa ? response.predictions.yield_kg_ha : kgHaToKgAcre(response.predictions.yield_kg_ha), unit: isHa ? "kg/ha" : "kg/acre" },
     ];
-  }, [response]);
+  }, [response, unit]);
 
   useEffect(() => {
     const stored = localStorage.getItem("plot_input");
@@ -467,6 +475,19 @@ export default function Recommend() {
             className="rounded-3xl bg-white shadow-sm border border-slate-100 p-6 space-y-6 opacity-0 animate-fade-in-up"
             style={{ animationDelay: "400ms" }}
           >
+            {response.predictions?.insights?.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Model insights</h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {response.predictions.insights.map((insight, idx) => (
+                    <div key={idx} className="flex gap-3 rounded-2xl bg-emerald-50/50 p-4 border border-emerald-100 text-sm text-slate-700">
+                      <span className="text-emerald-500 text-lg leading-none">💡</span>
+                      <p>{insight}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900">Fertilizer recommendation</h3>
@@ -494,8 +515,7 @@ export default function Recommend() {
                       <tr>
                         <th className="px-3 py-2">Product</th>
                         <th className="px-3 py-2 text-right">N-P-K</th>
-                        <th className="px-3 py-2 text-right">kg/acre</th>
-                        <th className="px-3 py-2 text-right">kg/ha</th>
+                        <th className="px-3 py-2 text-right">Rate (kg/{unit === "ha" ? "ha" : "acre"})</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -505,8 +525,7 @@ export default function Recommend() {
                           <td className="px-3 py-2 text-right">
                             {p.N_pct}-{p.P_pct}-{p.K_pct}
                           </td>
-                          <td className="px-3 py-2 text-right">{p.rate_kg_acre}</td>
-                          <td className="px-3 py-2 text-right">{p.rate_kg_ha}</td>
+                          <td className="px-3 py-2 text-right">{unit === "ha" ? p.rate_kg_ha : p.rate_kg_acre}</td>
                         </tr>
                       ))}
                     </tbody>

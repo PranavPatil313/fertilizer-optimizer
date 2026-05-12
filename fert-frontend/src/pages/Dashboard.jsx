@@ -8,6 +8,17 @@ import {
 } from "../api/api";
 import useAuth from "../auth/useAuth";
 import { getWorkspaceVersion, subscribeWorkspaceUpdate } from "../utils/workspaceEvents";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+const REGION_COORDS = {
+  "Kolhapur": [16.7050, 74.2433],
+  "Pune": [18.5204, 73.8567],
+  "Sangli": [16.8524, 74.5815],
+  "Satara": [17.6805, 74.0183],
+  "Solapur": [17.6599, 75.9064],
+};
 
 function SummaryCard({ label, value, subtext, delay = "0ms", icon }) {
   return (
@@ -34,6 +45,10 @@ export default function Dashboard() {
   const [status, setStatus] = useState({ loading: true, error: "" });
   const [refreshTick, setRefreshTick] = useState(() => getWorkspaceVersion());
   const lastFetchRef = useRef(0);
+  const [activeMetric, setActiveMetric] = useState("Yield");
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Listen for token expiration events
   useEffect(() => {
@@ -100,6 +115,107 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
+  async function handleLogHarvest(predictionId) {
+    const val = window.prompt("Enter actual harvested yield (kg/ha) for this plot:");
+    if (!val) return;
+    const num = parseFloat(val);
+    if (isNaN(num) || num <= 0) {
+      alert("Please enter a valid number.");
+      return;
+    }
+    try {
+      const token = localStorage.getItem("access_token");
+      const apiBase = import.meta.env.VITE_API_URL || API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiBase}/predictions/${predictionId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ actual_yield_kg_ha: num })
+      });
+      if (!res.ok) throw new Error("Failed to save harvest data");
+      setRefreshTick(Date.now());
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function handleCsvImport(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length < 2) {
+          alert("CSV must have a header row and at least one data row.");
+          return;
+        }
+        
+        // Force headers to lowercase for safe mapping
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const parsedPlots = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          const plot = {};
+          headers.forEach((h, idx) => { plot[h] = values[idx]; });
+          parsedPlots.push(plot);
+        }
+        
+        setImportProgress({ current: 0, total: parsedPlots.length });
+        let successCount = 0;
+        const token = localStorage.getItem("access_token");
+        const apiBase = import.meta.env.VITE_API_URL || API_URL || "http://localhost:8000";
+        
+        for (let i = 0; i < parsedPlots.length; i++) {
+          try {
+            const p = parsedPlots[i];
+            const payload = {
+              plot_name: p.plot_name || `Imported Plot ${i+1}`,
+              crop_type: p.crop_type || "Wheat",
+              soil_type: p.soil_type || "Black",
+              region: p.region || "Pune",
+              avg_temp: Number(p.avg_temp) || 25,
+              rainfall_mm: Number(p.rainfall_mm) || 500,
+              crop_duration_days: Number(p.crop_duration_days) || 120,
+              soil_N: Number(p.soil_n) || 50,
+              soil_P: Number(p.soil_p) || 30,
+              soil_K: Number(p.soil_k) || 100,
+              pH: Number(p.ph) || 6.5,
+              organic_matter_pct: Number(p.organic_matter_pct) || 1.5,
+              irrigation_type: p.irrigation_type || "rainfed",
+              area_acre: Number(p.area_acre) || 2.0
+            };
+            
+            const res = await fetch(`${apiBase}/recommend`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+              body: JSON.stringify(payload)
+            });
+            
+            if (res.ok) successCount++;
+          } catch (err) {
+            console.error("Failed to import plot", i, err);
+          }
+          setImportProgress({ current: i + 1, total: parsedPlots.length });
+          // 600ms delay safely spaces requests apart to prevent 429 Rate Limits
+          await new Promise(r => setTimeout(r, 600));
+        }
+        alert(`Successfully processed ${successCount} out of ${parsedPlots.length} plots!`);
+        setRefreshTick(Date.now());
+      } catch (err) {
+        console.error("Import error", err);
+        alert("Failed to parse CSV file.");
+      } finally {
+        setImporting(false);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   const latestPrediction = useMemo(
     () => predictions?.[0] ?? null,
     [predictions]
@@ -109,6 +225,48 @@ export default function Dashboard() {
     plots.forEach((plot) => map.set(plot.id, plot));
     return map;
   }, [plots]);
+
+  const filteredPlots = useMemo(() => {
+    if (!searchTerm.trim()) return plots;
+    const lower = searchTerm.toLowerCase();
+    return plots.filter((p) =>
+      (p.name && p.name.toLowerCase().includes(lower)) ||
+      (p.data?.crop_type && p.data.crop_type.toLowerCase().includes(lower)) ||
+      (p.data?.region && p.data.region.toLowerCase().includes(lower)) ||
+      String(p.id).includes(lower)
+    );
+  }, [plots, searchTerm]);
+
+  const filteredPredictions = useMemo(() => {
+    if (!searchTerm.trim()) return predictions;
+    const lower = searchTerm.toLowerCase();
+    return predictions.filter((p) => {
+      const plot = plotLookup.get(p.plot_id);
+      const plotName = plot?.name || plot?.data?.crop_type || "";
+      return (
+        String(p.plot_id).includes(lower) ||
+        plotName.toLowerCase().includes(lower) ||
+        (p.model_version && p.model_version.toLowerCase().includes(lower))
+      );
+    });
+  }, [predictions, plotLookup, searchTerm]);
+
+  const trendData = useMemo(() => {
+    if (!predictions || predictions.length === 0) return [];
+    // Reverse to show oldest to newest left-to-right
+    return [...predictions].reverse().map(p => {
+       const date = new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+       const yieldVal = p.result?.predictions?.yield_kg_ha || p.result?.preds?.yield_kg_ha || 0;
+       const actualYieldVal = p.result?.feedback?.actual_yield_kg_ha || null;
+       const carbonVal = p.result?.carbon_kg_ha || p.result?.carbon?.co2eq_kg_ha || p.result?.carbon || 0;
+       return {
+          date: date,
+          Yield: yieldVal,
+          ActualYield: actualYieldVal,
+          Carbon: carbonVal,
+       };
+    }).filter(d => d.Yield > 0 || d.Carbon > 0);
+  }, [predictions]);
 
   if (!user) {
     return (
@@ -208,15 +366,135 @@ export default function Dashboard() {
         />
       </div>
 
+      {trendData.length > 1 && (
+        <div 
+          className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-5 sm:p-8 flex flex-col opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "350ms" }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <span className="text-xl">{activeMetric === "Yield" ? "📈" : "🌍"}</span> Historical {activeMetric === "Yield" ? "yield" : "carbon footprint"} trends
+            </h3>
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveMetric("Yield")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeMetric === "Yield" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Yield (kg/ha)
+              </button>
+              <button
+                onClick={() => setActiveMetric("Carbon")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  activeMetric === "Carbon" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Carbon (kg CO₂)
+              </button>
+            </div>
+          </div>
+          <div className="w-full h-[250px] sm:h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                {activeMetric === "Yield" && (
+                  <Line type="monotone" name="Actual Harvest" dataKey="ActualYield" stroke="#3b82f6" strokeWidth={3} strokeDasharray="5 5" activeDot={{ r: 8 }} connectNulls animationDuration={1500} />
+                )}
+                <Line type="monotone" name={activeMetric === "Yield" ? "Predicted Yield" : "Carbon"} dataKey={activeMetric} stroke={activeMetric === "Yield" ? "#10b981" : "#64748b"} strokeWidth={3} activeDot={{ r: 8 }} animationDuration={1500} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {plots.length > 0 && (
+        <div 
+          className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-5 sm:p-8 flex flex-col opacity-0 animate-fade-in-up"
+          style={{ animationDelay: "375ms" }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <span className="text-xl">🗺️</span> Geographic distribution
+            </h3>
+          </div>
+          <div className="w-full h-[300px] sm:h-[400px] rounded-xl overflow-hidden border border-slate-200 relative z-0">
+            <MapContainer center={[17.5, 74.5]} zoom={7} scrollWheelZoom={false} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {filteredPlots.map(plot => {
+                const region = plot.data?.region;
+                const coords = REGION_COORDS[region];
+                if (!coords) return null;
+                
+                // Add slight random offset to prevent exact overlapping
+                const offsetLat = coords[0] + (Math.random() - 0.5) * 0.08;
+                const offsetLng = coords[1] + (Math.random() - 0.5) * 0.08;
+
+                return (
+                  <CircleMarker key={plot.id} center={[offsetLat, offsetLng]} radius={8} fillColor="#10b981" color="#047857" weight={2} fillOpacity={0.7}>
+                    <Popup className="rounded-xl">
+                      <div className="text-sm p-1">
+                        <p className="font-bold text-slate-900">{plot.name || plot.data?.crop_type}</p>
+                        <p className="text-slate-600 mt-1">Region: <span className="font-medium">{region}</span></p>
+                        <p className="text-slate-600">Area: <span className="font-medium">{plot.data?.area_acre} acres</span></p>
+                        <button onClick={() => setSearchTerm(plot.name || String(plot.id))} className="mt-2 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition">Filter below &rarr;</button>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
+            </MapContainer>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <div 
           className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-5 sm:p-8 flex flex-col opacity-0 animate-fade-in-up h-full"
           style={{ animationDelay: "400ms" }}
         >
-          <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <span className="text-xl">🌍</span> Saved plots
             </h3>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-48">
+              <input
+                type="text"
+                placeholder="Search plots..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-1.5 pl-8 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:outline-none transition-colors"
+              />
+              <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">🔍</span>
+            </div>
+            <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const tmpl = "plot_name,crop_type,soil_type,region,avg_temp,rainfall_mm,crop_duration_days,soil_n,soil_p,soil_k,ph,organic_matter_pct,irrigation_type,area_acre\nField A,Sugarcane,Black,Pune,26,800,365,70,40,150,6.8,2.1,irrigated,5.0";
+                const blob = new Blob([tmpl], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "plot_import_template.csv";
+                a.click();
+              }}
+              className="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition border border-emerald-200"
+            >
+              Template
+            </button>
+            <label className={`cursor-pointer text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+              {importing ? `Importing ${importProgress.current}/${importProgress.total}...` : "Import CSV"}
+              <input type="file" accept=".csv" className="hidden" onChange={handleCsvImport} disabled={importing} />
+            </label>
+            </div>
+          </div>
           </div>
           {status.loading ? (
             <div className="flex-1 flex items-center justify-center p-6"><p className="text-sm text-slate-500 animate-pulse">Loading plots…</p></div>
@@ -224,9 +502,13 @@ export default function Dashboard() {
             <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
               <p className="text-sm text-slate-500">Nothing yet. Use “Create Plot” and run a recommendation to persist data.</p>
             </div>
+        ) : filteredPlots.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
+            <p className="text-sm text-slate-500">No plots match your search for "<span className="font-semibold text-slate-700">{searchTerm}</span>".</p>
+          </div>
           ) : (
             <div className="space-y-3 pr-1 max-h-[32rem] overflow-y-auto">
-              {plots.map((plot, idx) => (
+            {filteredPlots.map((plot, idx) => (
                 <div
                   key={plot.id}
                   className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 hover:border-emerald-200 hover:shadow-sm transition-all duration-300 opacity-0 animate-fade-in-right"
@@ -286,6 +568,36 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <span className="text-xl">⚡</span> Latest predictions
             </h3>
+            {predictions.length > 0 && (
+              <button
+                onClick={() => {
+                  const rows = [["Date", "Plot ID", "Crop", "Yield Predicted (kg/ha)", "Actual Yield (kg/ha)", "Carbon (kg CO2e/ha)", "N (kg/ha)", "P (kg/ha)", "K (kg/ha)"]];
+                  predictions.forEach(p => {
+                    const plot = plots.find(pl => pl.id === p.plot_id);
+                    const crop = plot?.data?.crop_type || "Unknown";
+                    const date = new Date(p.created_at).toLocaleDateString();
+                    const y_pred = p.result?.predictions?.yield_kg_ha?.toFixed(1) || "";
+                    const y_act = p.result?.feedback?.actual_yield_kg_ha || "";
+                    const co2 = p.result?.carbon_kg_ha?.toFixed(1) || "";
+                    const n = p.result?.predictions?.N_kg_ha?.toFixed(1) || "";
+                    const phos = p.result?.predictions?.P_kg_ha?.toFixed(1) || "";
+                    const k = p.result?.predictions?.K_kg_ha?.toFixed(1) || "";
+                    rows.push([date, p.plot_id, crop, y_pred, y_act, co2, n, phos, k]);
+                  });
+                  const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+                  const encodedUri = encodeURI(csvContent);
+                  const link = document.createElement("a");
+                  link.setAttribute("href", encodedUri);
+                  link.setAttribute("download", "agronomy_data_export.csv");
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+              >
+                Export CSV
+              </button>
+            )}
           </div>
           {status.loading ? (
             <div className="flex-1 flex items-center justify-center p-6"><p className="text-sm text-slate-500 animate-pulse">Loading predictions…</p></div>
@@ -293,9 +605,13 @@ export default function Dashboard() {
             <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
               <p className="text-sm text-slate-500">Run the recommender to populate this list.</p>
             </div>
+          ) : filteredPredictions.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center">
+              <p className="text-sm text-slate-500">No predictions match your search.</p>
+            </div>
           ) : (
             <ul className="space-y-3 max-h-[32rem] overflow-y-auto pr-1">
-              {predictions.map((prediction, idx) => (
+              {filteredPredictions.map((prediction, idx) => (
                 <li
                   key={prediction.id}
                   className="rounded-xl border border-slate-100 bg-white shadow-sm p-4 hover:border-emerald-300 hover:shadow-md transition-all duration-300 opacity-0 animate-fade-in-right"
@@ -349,6 +665,18 @@ export default function Dashboard() {
                     >
                       Open in results
                     </button>
+                    {!prediction.result?.feedback?.actual_yield_kg_ha ? (
+                      <button
+                        className="text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 font-semibold hover:bg-blue-100 transition"
+                        onClick={() => handleLogHarvest(prediction.id)}
+                      >
+                        Log actual yield
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 font-medium">
+                        Actual: {prediction.result.feedback.actual_yield_kg_ha} kg/ha
+                      </span>
+                    )}
                   </div>
                 </li>
               ))}

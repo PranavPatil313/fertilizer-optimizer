@@ -5,12 +5,13 @@ import sys
 import logging
 import asyncio
 import uuid
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
+from datetime import datetime, timedelta, timezone
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 
-from .schemas import PlotInput, PredictResponse, SoilHealthResponse, CarbonResponse
+from .schemas import PlotInput, PredictResponse, SoilHealthResponse, CarbonResponse, FeedbackInput
 from . import utils
 from ..recommendation import (
     make_recommendation,
@@ -49,6 +50,10 @@ def get_rate_limit_key(request: Request):
     return get_remote_address(request)
 
 from src.api.crud import save_plot, save_prediction, save_plot_weather
+
+from src.db.session import AsyncSessionLocal
+from sqlalchemy import select
+from src.db.models import Prediction, Plot
 
 from src.api.auth import router as auth_router
 from src.api.deps import get_current_user_token
@@ -136,6 +141,21 @@ from src.db.session import engine
 from src.db.models import Base
 
 from src.services.weather import fetch_weather_snapshot, derive_weather_risk, WeatherApiError
+
+# --- Simple In-Memory Cache for Weather API ---
+WEATHER_SNAPSHOT_CACHE = {}
+WEATHER_CACHE_TTL = timedelta(minutes=30)
+
+async def get_cached_weather_snapshot(query: str):
+    now = datetime.now(timezone.utc)
+    if query in WEATHER_SNAPSHOT_CACHE:
+        entry = WEATHER_SNAPSHOT_CACHE[query]
+        if now - entry["time"] < WEATHER_CACHE_TTL:
+            return entry["snapshot"]
+    
+    snapshot = await fetch_weather_snapshot(query)
+    WEATHER_SNAPSHOT_CACHE[query] = {"snapshot": snapshot, "time": now}
+    return snapshot
 
 @app.on_event("startup")
 async def on_startup():
@@ -300,7 +320,7 @@ async def weather_preview(
         raise HTTPException(status_code=400, detail="region or lat/lon must be provided")
 
     try:
-        snapshot = await fetch_weather_snapshot(query)
+        snapshot = await get_cached_weather_snapshot(query)
         risk = derive_weather_risk(snapshot, soil_type="")
     except WeatherApiError as we:
         raise HTTPException(status_code=502, detail=f"Weather provider error: {we}")
@@ -356,7 +376,7 @@ async def recommend(
             # Use region as default query; can be replaced with lat/lon later
             location_q = inp.get("region") or inp.get("crop_type")
             if location_q:
-                weather_snapshot = await fetch_weather_snapshot(location_q)
+                weather_snapshot = await get_cached_weather_snapshot(location_q)
                 weather_risk = derive_weather_risk(
                     weather_snapshot, soil_type=inp.get("soil_type", "")
                 )
@@ -414,7 +434,7 @@ async def recommend(
             plot = await save_plot(
                 user_id=current_user["user_id"],
                 data=inp,
-                name=f"{inp.get('crop_type', 'Plot')} recommendation"
+                name=inp.get("plot_name") or f"{inp.get('crop_type', 'Plot')} recommendation"
             )
             plot_id = plot.id
 
@@ -462,10 +482,100 @@ async def recommend(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ---------------------- Feedback Loop -------------------
+@app.post("/predictions/{prediction_id}/feedback")
+@limiter.limit(RATE_LIMIT)
+async def submit_prediction_feedback(
+    request: Request,
+    prediction_id: int,
+    feedback: FeedbackInput,
+    current_user: dict = Depends(get_current_user_token)
+):
+    """Submit actual yield to monitor model drift and performance."""
+    try:
+        async with AsyncSessionLocal() as session:
+            q = await session.execute(
+                select(Prediction).join(Plot).where(
+                    Prediction.id == prediction_id,
+                    Plot.user_id == current_user["user_id"]
+                )
+            )
+            pred = q.scalars().first()
+            if not pred:
+                raise HTTPException(status_code=404, detail="Prediction not found or unauthorized")
+            
+            # Safely copy and mutate the JSON result
+            res = pred.result.copy() if pred.result else {}
+            if "feedback" not in res:
+                res["feedback"] = {}
+            res["feedback"]["actual_yield_kg_ha"] = feedback.actual_yield_kg_ha
+            pred.result = res
+            
+            session.add(pred)
+            await session.commit()
+            return {"message": "Harvest feedback saved", "actual_yield_kg_ha": feedback.actual_yield_kg_ha}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error saving prediction feedback")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------- Weekly Reports (Admin) ----------------------
+@app.post("/admin/trigger-weekly-reports")
+@limiter.limit(RATE_LIMIT)
+async def trigger_weekly_reports(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user_token)
+):
+    """Trigger weekly summary emails for all users."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    async def send_reports():
+        try:
+            async with AsyncSessionLocal() as session:
+                # Get all active users
+                from src.db.models import User
+                users_q = await session.execute(select(User).where(User.is_active == 1))
+                users = users_q.scalars().all()
+                
+                seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+                
+                for u in users:
+                    # Count predictions for this user in last 7 days
+                    q = await session.execute(
+                        select(Prediction).join(Plot).where(
+                            Plot.user_id == u.id,
+                            Prediction.created_at >= seven_days_ago
+                        )
+                    )
+                    recent_preds = q.scalars().all()
+                    if recent_preds:
+                        # STUB: Send email
+                        logger.info(f"\n" + "="*45)
+                        logger.info(f"📧 AUTOMATED WEEKLY EMAIL STUB")
+                        logger.info(f"To: {u.email}")
+                        logger.info(f"Subject: Your Agronomy Weekly Summary")
+                        logger.info(f"Body: You ran {len(recent_preds)} ML predictions this week.")
+                        logger.info(f"      Log in to FertilizerOptimizer to view details.")
+                        logger.info("="*45 + "\n")
+        except Exception as e:
+            logger.error(f"Failed to send weekly reports: {e}")
+            
+    background_tasks.add_task(send_reports)
+    return {"message": "Weekly reports triggered and sending in the background."}
+
 # ---------------------- PDF Report ----------------------
 @app.post("/report")
 @limiter.limit(RATE_LIMIT)
-async def report(request: Request, input: PlotInput, authorized: bool = Depends(api_key_auth)):
+async def report(
+    request: Request, 
+    input: PlotInput, 
+    company_name: str = None, 
+    consultant_name: str = None, 
+    authorized: bool = Depends(api_key_auth)
+):
     """
     Generate a detailed PDF containing:
     - Predictions
@@ -498,7 +608,7 @@ async def report(request: Request, input: PlotInput, authorized: bool = Depends(
         try:
             location_q = inp.get("region") or inp.get("crop_type")
             if location_q:
-                weather_snapshot = await fetch_weather_snapshot(location_q)
+                weather_snapshot = await get_cached_weather_snapshot(location_q)
                 weather_risk = derive_weather_risk(
                     weather_snapshot, soil_type=inp.get("soil_type", "")
                 )
@@ -515,6 +625,8 @@ async def report(request: Request, input: PlotInput, authorized: bool = Depends(
             co2,
             blend,
             {"snapshot": weather_snapshot, "risk": weather_risk},
+            company_name=company_name,
+            consultant_name=consultant_name
         )
 
         return FileResponse(

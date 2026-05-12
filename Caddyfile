@@ -1,0 +1,15 @@
+# Replace "example.com" with your actual domain name (e.g., app.myagtech.com)
+# Caddy will automatically provision Let's Encrypt SSL certificates for this domain!
+example.com {
+    # 1. Route all backend API calls to the FastAPI container
+    @backend path /auth/* /api/* /admin/* /predict /soil-health /carbon /recommend /report /weather/* /predictions/* /docs /openapi.json
+    
+    handle @backend {
+        reverse_proxy backend:8000
+    }
+
+    # 2. Route everything else (the UI) to the React Nginx container
+    handle {
+        reverse_proxy frontend:80
+    }
+}

@@ -11,6 +11,7 @@ import useDebounce from "../hooks/useDebounce";
 import { kgHaToKgAcre } from "../utils/unitConversion";
 
 const initial = {
+  plot_name: "",
   crop_type: "Sugarcane",
   soil_type: "Black",
   region: "Kolhapur",
@@ -139,31 +140,37 @@ function computeProductBlendFromPredictions(preds, cropType) {
 
 const sections = [
   {
+    title: "Identification",
+    fields: [
+      { key: "plot_name", label: "Plot Name / Reference", type: "text", helpText: "e.g., Smith Farm - North Field" },
+    ],
+  },
+  {
     title: "Crop & Weather",
     fields: [
       { key: "crop_type", label: "Crop Type", type: "text", options: ["Cotton", "Sugarcane", "Wheat", "Maize", "Rice", "Soybean"] },
-      { key: "region", label: "Region", type: "text", options: ["Kolhapur", "Pune", "Sangli", "Satara", "Solapur"] },
-      { key: "avg_temp", label: "Average Temperature (°C)", type: "number" },
-      { key: "rainfall_mm", label: "Season Rainfall (mm)", type: "number" },
-      { key: "crop_duration_days", label: "Crop Duration (days)", type: "number" },
+      { key: "region", label: "Region", type: "text", options: ["Kolhapur", "Pune", "Sangli", "Satara", "Solapur"], helpText: "Used to fetch regional weather forecasts." },
+      { key: "avg_temp", label: "Average Temperature (°C)", type: "number", min: -20, max: 60 },
+      { key: "rainfall_mm", label: "Season Rainfall (mm)", type: "number", min: 0, helpText: "Expected cumulative rainfall." },
+      { key: "crop_duration_days", label: "Crop Duration (days)", type: "number", min: 1, max: 730 },
     ],
   },
   {
     title: "Soil Profile",
     fields: [
       { key: "soil_type", label: "Soil Type", type: "text", options: ["Black", "Red", "Reddish Brown"] },
-      { key: "pH", label: "Soil pH", type: "number" },
-      { key: "soil_N", label: "Nitrogen (ppm)", type: "number" },
-      { key: "soil_P", label: "Phosphorus (ppm)", type: "number" },
-      { key: "soil_K", label: "Potassium (ppm)", type: "number" },
-      { key: "organic_matter_pct", label: "Organic Matter (%)", type: "number" },
+      { key: "pH", label: "Soil pH", type: "number", min: 0, max: 14, step: 0.1, helpText: "Usually between 5.5 and 8.0." },
+      { key: "soil_N", label: "Nitrogen (ppm)", type: "number", min: 0, helpText: "Found on your latest soil lab report." },
+      { key: "soil_P", label: "Phosphorus (ppm)", type: "number", min: 0, helpText: "Found on your latest soil lab report." },
+      { key: "soil_K", label: "Potassium (ppm)", type: "number", min: 0, helpText: "Found on your latest soil lab report." },
+      { key: "organic_matter_pct", label: "Organic Matter (%)", type: "number", min: 0, max: 100, step: 0.1, helpText: "Typical range is 1.0% - 5.0%." },
     ],
   },
   {
     title: "Operations",
     fields: [
       { key: "irrigation_type", label: "Irrigation Type", type: "text", options: ["rainfed"] },
-      { key: "area_acre", label: "Area (acre)", type: "number" },
+      { key: "area_acre", label: "Area (acre)", type: "number", min: 0.01, step: 0.01 },
     ],
   },
 ];
@@ -203,6 +210,13 @@ export default function CreatePlot() {
   const debouncedPayload = useDebounce(payload, 800);
 
   const displayFields = useMemo(() => sections, []);
+  
+  const [unit, setUnit] = useState(() => localStorage.getItem("pref_unit") || "acre");
+  useEffect(() => {
+    const handler = () => setUnit(localStorage.getItem("pref_unit") || "acre");
+    window.addEventListener("unitChange", handler);
+    return () => window.removeEventListener("unitChange", handler);
+  }, []);
 
   function setField(k, v) {
     setPayload((prev) => {
@@ -304,6 +318,7 @@ export default function CreatePlot() {
           : (debouncedPayload.area_ha != null ? debouncedPayload.area_ha : initial.area_acre);
         
         const cleanPayload = {
+          plot_name: debouncedPayload.plot_name ? String(debouncedPayload.plot_name) : undefined,
           crop_type: String(debouncedPayload.crop_type || ''),
           soil_type: String(debouncedPayload.soil_type || ''),
           region: String(debouncedPayload.region || ''),
@@ -365,7 +380,7 @@ export default function CreatePlot() {
   }, [debouncedPayload]);
 
   return (
-    <div className="grid gap-6 md:grid-cols-[2fr,1fr]">
+    <div className="max-w-6xl mx-auto w-full grid gap-6 lg:grid-cols-[1.5fr,1fr] pb-10 pt-4 sm:pt-6 items-start">
       <div className="rounded-3xl border border-transparent bg-white/95 p-6 shadow-xl ring-1 ring-slate-100">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -405,7 +420,9 @@ export default function CreatePlot() {
                     <input
                       type={field.type}
                       inputMode={field.type === "number" ? "decimal" : "text"}
-                      step="any"
+                      step={field.step || "any"}
+                      min={field.min}
+                      max={field.max}
                       value={payload[field.key] ?? initial[field.key] ?? ""}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -422,6 +439,9 @@ export default function CreatePlot() {
                       }}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                     />
+                    {field.helpText && (
+                      <span className="block mt-1.5 text-xs text-slate-400 font-normal">{field.helpText}</span>
+                    )}
                     {field.options && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {field.options.map((option) => (
@@ -478,22 +498,23 @@ export default function CreatePlot() {
                   preview.predictions,
                   payload.crop_type
                 );
+                const isHa = unit === "ha";
 
                 const cards = [
                   {
                     key: "urea",
                     label: "Urea (46-0-0)",
-                    value: blend?.urea?.kgAcre,
+                    value: isHa ? blend?.urea?.kgHa : blend?.urea?.kgAcre,
                   },
                   {
                     key: "dap",
                     label: "DAP (18-46-0)",
-                    value: blend?.dap?.kgAcre,
+                    value: isHa ? blend?.dap?.kgHa : blend?.dap?.kgAcre,
                   },
                   {
                     key: "mop",
                     label: "MOP (0-0-60)",
-                    value: blend?.mop?.kgAcre,
+                    value: isHa ? blend?.mop?.kgHa : blend?.mop?.kgAcre,
                   },
                 ];
 
@@ -502,9 +523,9 @@ export default function CreatePlot() {
                 if (blend?.npkHa) {
                   const { N, P, K } = blend.npkHa;
                   const carbonKgHa = N * 6.7 + P * 1.1 + K * 0.9;
-                  const carbonKgAcre = kgHaToKgAcre(carbonKgHa);
-                  if (typeof carbonKgAcre === "number" && !Number.isNaN(carbonKgAcre)) {
-                    carbonDisplay = `${carbonKgAcre.toFixed(1)} kg CO₂e/acre`;
+                  const cVal = isHa ? carbonKgHa : kgHaToKgAcre(carbonKgHa);
+                  if (typeof cVal === "number" && !Number.isNaN(cVal)) {
+                    carbonDisplay = `${cVal.toFixed(1)} kg CO₂e/${isHa ? "ha" : "acre"}`;
                   }
                 }
 
@@ -522,7 +543,7 @@ export default function CreatePlot() {
                           <p className="text-2xl font-semibold text-green-900">
                             {typeof card.value === "number" ? card.value.toFixed(1) : "—"}
                           </p>
-                          <p className="text-[11px] text-green-600">kg/acre</p>
+                          <p className="text-[11px] text-green-600">kg/{isHa ? "ha" : "acre"}</p>
                         </div>
                       ))}
                     </div>
@@ -534,11 +555,9 @@ export default function CreatePlot() {
                       <p className="text-3xl font-semibold text-gray-900">
                         {typeof preview.predictions?.yield_kg_ha === "number"
                           ? (() => {
-                              const yieldKgAcre = kgHaToKgAcre(
-                                preview.predictions.yield_kg_ha
-                              );
-                              return yieldKgAcre !== null
-                                ? `${yieldKgAcre.toFixed(0)} kg/acre`
+                              const yVal = isHa ? preview.predictions.yield_kg_ha : kgHaToKgAcre(preview.predictions.yield_kg_ha);
+                              return yVal !== null
+                                ? `${yVal.toFixed(0)} kg/${isHa ? "ha" : "acre"}`
                                 : "—";
                             })()
                           : "—"}

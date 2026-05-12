@@ -10,6 +10,7 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [err, setErr] = useState("");
 
   async function onSubmit(e) {
@@ -31,7 +32,7 @@ export default function Signup() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+    <div className="max-w-6xl mx-auto w-full grid gap-6 lg:grid-cols-[1.2fr_1fr] pb-10 pt-6 sm:pt-10 items-start">
       <div className="rounded-3xl bg-white p-8 shadow-sm border border-slate-100">
         <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Get started</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">Create your account</h1>
@@ -77,10 +78,23 @@ export default function Signup() {
               {err}
         </div>
           )}
+          
+          <div className="flex items-start gap-3 mt-4">
+            <input
+              type="checkbox"
+              id="tos"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <label htmlFor="tos" className="text-sm text-slate-600 leading-tight">
+              I agree to the <a href="#" className="text-emerald-600 hover:underline">Terms of Service</a> and <a href="#" className="text-emerald-600 hover:underline">Privacy Policy</a>.
+            </label>
+          </div>
 
           <button
             className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-70"
-            disabled={submitting}
+            disabled={submitting || !agreed}
           >
             {submitting ? "Creating…" : "Create account"}
           </button>

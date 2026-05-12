@@ -85,6 +85,34 @@ def predict_npk_and_yield(input_dict: dict):
         out["K_kg_ha"] = min(out["K_kg_ha"], 300.0)   # Cap at 300 kg/ha (realistic max)
         out["yield_kg_ha"] = min(out["yield_kg_ha"], max_yield)  # Crop-specific yield cap
         
+        insights = []
+        
+        # --- Data Integrity & Outlier Warnings ---
+        pH = float(input_dict.get("pH", 6.5))
+        om = float(input_dict.get("organic_matter_pct", 1.5))
+        soil_N = float(input_dict.get("soil_N", 0.0))
+        
+        if pH < 4.5 or pH > 8.5:
+            insights.append(f"⚠️ Extreme soil pH detected ({pH}). ML confidence may be reduced.")
+        if om > 8.0:
+            insights.append(f"⚠️ Unusually high organic matter ({om}%). Verify lab results.")
+        if soil_N > 150.0:
+            insights.append(f"⚠️ Extreme baseline nitrogen ({soil_N} ppm). Check for data entry error.")
+
+        # --- Standard Agronomic Insights ---
+        if pH < 5.5:
+            insights.append(f"Acidic soil (pH {pH}) restricts phosphorus availability and root growth.")
+        elif pH > 7.5:
+            insights.append(f"Alkaline soil (pH {pH}) locks up phosphorus and key micronutrients.")
+            
+        if om < 1.0:
+            insights.append("Very low organic matter (<1.0%) reduces soil water and nutrient holding capacity.")
+        elif om >= 3.0:
+            insights.append("Healthy organic matter (≥3.0%) boosts natural nitrogen mineralization.")
+            
+        if soil_N < 15.0:
+            insights.append("Depleted baseline soil nitrogen drives a higher synthetic fertilizer requirement.")
+        
         # Apply rainfall-based yield reduction for rainfed crops with insufficient rainfall
         rainfall_mm = float(input_dict.get("rainfall_mm", 0.0))
         irrigation = str(input_dict.get("irrigation_type", "")).lower()
@@ -102,6 +130,7 @@ def predict_npk_and_yield(input_dict: dict):
             min_rainfall = crop_min_rainfall.get(crop_type, 400)
             
             if rainfall_mm < min_rainfall:
+                insights.append(f"Severe rainfall deficit ({rainfall_mm}mm vs {min_rainfall}mm required) heavily constrains expected yield.")
                 # Calculate reduction factor based on rainfall deficit
                 if rainfall_mm < 50:
                     # Extreme drought: crop failure (0-5% yield)
@@ -122,6 +151,7 @@ def predict_npk_and_yield(input_dict: dict):
                 out["P_kg_ha"] = max(5.0, out["P_kg_ha"] * reduction_factor)
                 out["K_kg_ha"] = max(10.0, out["K_kg_ha"] * reduction_factor)
         
+        out["insights"] = insights
         return out
     except (KeyError, ValueError) as e:
         error_msg = str(e)

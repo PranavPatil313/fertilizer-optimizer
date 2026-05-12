@@ -1,0 +1,45 @@
+# Railway.app configuration file
+# Deploy with: railway up
+
+[build]
+builder = "dockerfile"
+dockerfile = "Dockerfile"
+
+[deploy]
+startCommand = "./start_production.sh"
+healthcheckPath = "/"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Environment variables (set these in Railway dashboard)
+[env]
+ENV = "production"
+DEBUG = "false"
+PORT = "8000"
+USE_GUNICORN = "true"
+WORKERS = "4"
+RUN_MIGRATIONS = "true"
+
+# Database configuration
+# Railway will automatically inject DATABASE_URL when you add a PostgreSQL service
+
+# CORS configuration for mobile access
+CORS_ORIGINS = "https://your-frontend.vercel.app,https://your-custom-domain.com"
+
+# Rate limiting
+RATE_LIMIT = "60/minute"
+
+# Build arguments for Docker
+[build.args]
+PYTHON_VERSION = "3.12"
+NODE_VERSION = "18"
+
+# Service scaling
+[service]
+minScale = 1
+maxScale = 3
+autoscaling.metric = "cpu"
+autoscaling.target = 70
+autoscaling.min = 1
+autoscaling.max = 3
