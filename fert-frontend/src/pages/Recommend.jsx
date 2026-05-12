@@ -293,7 +293,7 @@ export default function Recommend() {
       localStorage.setItem("recent_predictions", JSON.stringify(recents.slice(0, 15)));
       emitWorkspaceUpdate({ source: "recommend", kind: "run" });
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Unable to reach backend");
+      setError(err.response?.data?.detail || err.message || "Unable to generate recommendation");
     } finally {
       setLoading(false);
     }
@@ -322,7 +322,7 @@ export default function Recommend() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="max-w-6xl mx-auto w-full space-y-4 sm:space-y-6 pb-10 pt-4 sm:pt-6">
       <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(20px) scale(0.98); }

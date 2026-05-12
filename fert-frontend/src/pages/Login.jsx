@@ -32,12 +32,12 @@ export default function Login() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="max-w-6xl mx-auto w-full grid gap-6 lg:grid-cols-2 pb-10 pt-6 sm:pt-10 items-start">
       <div className="rounded-3xl bg-white p-8 shadow-sm border border-slate-100">
         <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Welcome back</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">Sign in to continue</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Access dashboards, saved plots, and PDF reports synced via the FastAPI backend.
+          Access dashboards, saved plots, and PDF reports synced securely to your account.
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-5">

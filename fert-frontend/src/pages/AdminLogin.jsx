@@ -32,7 +32,7 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="max-w-6xl mx-auto w-full grid gap-6 lg:grid-cols-2 pb-10 pt-6 sm:pt-10 items-start">
       <div className="rounded-3xl bg-white p-8 shadow-sm border border-slate-100">
         <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Administrator</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">Sign in with admin credentials</h1>
@@ -102,12 +102,10 @@ export default function AdminLogin() {
         <div className="mt-6 rounded-2xl bg-white/80 p-4 text-slate-700 shadow-inner">
           <p className="text-xs uppercase tracking-wide text-slate-500">Security reminder</p>
           <p>
-            Only share admin credentials with trusted team members. All actions are logged via the
-            admin API endpoints.
+            Only share admin credentials with trusted team members. All actions are securely logged.
           </p>
         </div>
       </div>
     </div>
   );
 }
-

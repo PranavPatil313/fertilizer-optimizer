@@ -157,7 +157,7 @@ export default function Results() {
             Nutrient balance & yield
           </h3>
           <p className="text-sm text-gray-500 mb-4">
-            Chart is generated from live backend output and ready for stakeholder reporting.
+            Chart is generated from live predictions and ready for stakeholder reporting.
           </p>
           <div style={{ width: "100%", height: 320 }}>
             <ResponsiveContainer>
@@ -178,7 +178,7 @@ export default function Results() {
             <p className="text-4xl font-semibold text-gray-900">
               {res.soil_health?.soil_health_index?.toFixed(2) ?? "—"}
             </p>
-            <p className="text-sm text-gray-500">Composite index from backend model</p>
+            <p className="text-sm text-gray-500">Composite index from our agronomy model</p>
             <ul className="mt-4 grid grid-cols-2 gap-2 text-sm text-gray-600">
               {res.soil_health?.components
                 ? Object.entries(res.soil_health.components).map(([k, v]) => (
@@ -197,7 +197,7 @@ export default function Results() {
               <span className="text-base text-gray-500">kg CO₂e / ha</span>
             </p>
             <p className="text-sm text-gray-500">
-              Estimated from backend carbon calculator for this nutrient plan.
+              Estimated carbon footprint for this nutrient plan.
             </p>
             {res.weather_risk ? (
               <div className="mt-2 rounded-2xl bg-gray-50 border border-gray-100 p-3 text-xs text-gray-700 space-y-1">
@@ -321,7 +321,7 @@ function KeyValueCard({ title, payload }) {
   if (!payload || (typeof payload === "object" && Object.keys(payload).length === 0)) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-        {title} not provided in backend response.
+        {title} not available for this record.
       </div>
     );
   }
@@ -354,7 +354,7 @@ function BlendCard({ title, blend }) {
   if (!blend || typeof blend !== "object" || Object.keys(blend).length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-        {title} not provided in backend response.
+        {title} not available for this record.
       </div>
     );
   }
@@ -401,7 +401,7 @@ function PlanTable({ plan = [], title, notes }) {
   if (!plan || plan.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-        {title} not provided in backend response.
+        {title} not available for this record.
       </div>
     );
   }
