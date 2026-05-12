@@ -1,5 +1,5 @@
 // src/components/Navbar.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import useAuth from "../auth/useAuth";
 
@@ -15,20 +15,6 @@ export default function Navbar() {
   const navigate = useNavigate();
   const isAdmin = (user?.role || "").toLowerCase() === "admin";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [unit, setUnit] = useState(() => localStorage.getItem("pref_unit") || "acre");
-
-  useEffect(() => {
-    const handler = () => setUnit(localStorage.getItem("pref_unit") || "acre");
-    window.addEventListener("unitChange", handler);
-    return () => window.removeEventListener("unitChange", handler);
-  }, []);
-
-  const toggleUnit = () => {
-    const next = unit === "acre" ? "ha" : "acre";
-    localStorage.setItem("pref_unit", next);
-    setUnit(next);
-    window.dispatchEvent(new Event("unitChange"));
-  };
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -99,13 +85,6 @@ export default function Navbar() {
 
         {/* Desktop/Tablet User Section */}
         <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0">
-          <button
-            onClick={toggleUnit}
-            className="hidden lg:flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition"
-            title="Toggle preferred area unit"
-          >
-            {unit === "acre" ? "US (Acre)" : "Metric (ha)"}
-          </button>
           {user ? (
             <>
               <div className="text-right">
@@ -232,12 +211,6 @@ export default function Navbar() {
 
           {/* Mobile User Section */}
           <div className="border-t border-slate-100 px-4 py-3 space-y-2">
-            <button
-              onClick={toggleUnit}
-              className="w-full flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition mb-2"
-            >
-              Switch to {unit === "acre" ? "Metric (ha)" : "US (Acre)"}
-            </button>
             {user ? (
               <>
                 <div className="text-sm mb-3 pb-3 border-b border-slate-100">

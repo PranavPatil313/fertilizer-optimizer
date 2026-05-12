@@ -51,9 +51,9 @@ function DataCards({ data }) {
 
 function NpkPieChart({ N, P, K }) {
   const data = [
-    { name: "Nitrogen (N)", value: N ?? 0, color: "#10b981" },
-    { name: "Phosphorus (P)", value: P ?? 0, color: "#0ea5e9" },
-    { name: "Potassium (K)", value: K ?? 0, color: "#f59e0b" },
+    { name: "Nitrogen (N)", value: kgHaToKgAcre(N ?? 0), color: "#10b981" },
+    { name: "Phosphorus (P)", value: kgHaToKgAcre(P ?? 0), color: "#0ea5e9" },
+    { name: "Potassium (K)", value: kgHaToKgAcre(K ?? 0), color: "#f59e0b" },
   ];
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -75,7 +75,7 @@ function NpkPieChart({ N, P, K }) {
           ))}
         </Pie>
         <Tooltip 
-          formatter={(value) => `${value.toFixed(1)} kg/ha`} 
+          formatter={(value) => `${value.toFixed(1)} kg/acre`} 
           contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
         />
       </PieChart>
@@ -84,7 +84,7 @@ function NpkPieChart({ N, P, K }) {
 }
 
 function AnimatedYieldChart({ yieldKg }) {
-  const data = [{ name: "Yield", value: yieldKg ?? 0 }];
+  const data = [{ name: "Yield", value: kgHaToKgAcre(yieldKg ?? 0) }];
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
@@ -93,7 +93,7 @@ function AnimatedYieldChart({ yieldKg }) {
         <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
         <Tooltip 
           cursor={{ fill: "transparent" }} 
-          formatter={(val) => `${val.toFixed(0)} kg/ha`} 
+          formatter={(val) => `${val.toFixed(0)} kg/acre`} 
           contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
         />
         <Bar 
@@ -111,7 +111,7 @@ function AnimatedYieldChart({ yieldKg }) {
 }
 
 function AnimatedCarbonChart({ co2 }) {
-  const data = [{ name: "Carbon", value: co2 ?? 0 }];
+  const data = [{ name: "Carbon", value: kgHaToKgAcre(co2 ?? 0) }];
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} layout="vertical" margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -120,7 +120,7 @@ function AnimatedCarbonChart({ co2 }) {
         <YAxis type="category" dataKey="name" hide />
         <Tooltip 
           cursor={{ fill: "transparent" }} 
-          formatter={(val) => `${val.toFixed(1)} kg CO₂/ha`} 
+          formatter={(val) => `${val.toFixed(1)} kg CO₂/acre`} 
           contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
         />
         <Bar 
@@ -147,9 +147,9 @@ function PlanTable({ plan = [], notes }) {
             <tr>
               <th className="px-3 py-2">Day</th>
               <th className="px-3 py-2">Application</th>
-              <th className="px-3 py-2 text-right">N (kg/ha)</th>
-              <th className="px-3 py-2 text-right">P (kg/ha)</th>
-              <th className="px-3 py-2 text-right">K (kg/ha)</th>
+              <th className="px-3 py-2 text-right">N (kg/acre)</th>
+              <th className="px-3 py-2 text-right">P (kg/acre)</th>
+              <th className="px-3 py-2 text-right">K (kg/acre)</th>
             </tr>
           </thead>
           <tbody>
@@ -157,9 +157,9 @@ function PlanTable({ plan = [], notes }) {
               <tr key={`${row.day}-${idx}`} className="border-t border-slate-100 hover:bg-slate-50/50">
                 <td className="px-3 py-2 font-medium">{row.day === 0 ? "0 (Basal)" : row.day}</td>
                 <td className="px-3 py-2">{row.application}</td>
-                <td className="px-3 py-2 text-right text-emerald-700 font-medium">{row.N_kg_ha}</td>
-                <td className="px-3 py-2 text-right text-sky-700 font-medium">{row.P_kg_ha}</td>
-                <td className="px-3 py-2 text-right text-amber-600 font-medium">{row.K_kg_ha}</td>
+                <td className="px-3 py-2 text-right text-emerald-700 font-medium">{kgHaToKgAcre(row.N_kg_ha).toFixed(1)}</td>
+                <td className="px-3 py-2 text-right text-sky-700 font-medium">{kgHaToKgAcre(row.P_kg_ha).toFixed(1)}</td>
+                <td className="px-3 py-2 text-right text-amber-600 font-medium">{kgHaToKgAcre(row.K_kg_ha).toFixed(1)}</td>
               </tr>
             ))}
           </tbody>
@@ -193,11 +193,13 @@ function OrganicCards({ data }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {Object.entries(rest).map(([key, val]) => {
           if (val === null || val === undefined) return null;
-          const formattedKey = key.replace(/_/g, " ").replace("kg ha", "(kg/ha)");
+          const formattedKey = key.replace(/_/g, " ").replace("kg ha", "(kg/acre)");
+          const isKgHa = key.includes("kg_ha");
+          const displayVal = (isKgHa && typeof val === 'number') ? kgHaToKgAcre(val).toFixed(1) : val;
           return (
             <div key={key} className="rounded-xl border border-slate-100 bg-slate-50 p-3 shadow-sm hover:shadow-md transition-shadow">
               <h4 className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{formattedKey}</h4>
-              <p className="text-lg font-semibold text-slate-800">{val}</p>
+              <p className="text-lg font-semibold text-slate-800">{displayVal}</p>
             </div>
           );
         })}
@@ -516,7 +518,7 @@ export default function Recommend() {
                       <tr>
                         <th className="px-3 py-2">Product</th>
                         <th className="px-3 py-2 text-right">N-P-K</th>
-                        <th className="px-3 py-2 text-right">Rate (kg/{unit === "ha" ? "ha" : "acre"})</th>
+                        <th className="px-3 py-2 text-right">Rate (kg/acre)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -526,7 +528,7 @@ export default function Recommend() {
                           <td className="px-3 py-2 text-right">
                             {p.N_pct}-{p.P_pct}-{p.K_pct}
                           </td>
-                          <td className="px-3 py-2 text-right">{unit === "ha" ? p.rate_kg_ha : p.rate_kg_acre}</td>
+                          <td className="px-3 py-2 text-right">{p.rate_kg_acre}</td>
                         </tr>
                       ))}
                     </tbody>

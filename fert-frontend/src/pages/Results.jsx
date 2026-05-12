@@ -21,16 +21,16 @@ function BaselineComparison({ res }) {
   const baseP = Number(baseline.P) || 0;
   const baseK = Number(baseline.K) || 0;
   
-  // Carbon emission factors matching backend (N: 6.7, P: 1.1, K: 0.9)
-  const baseCarbon = (baseN * 6.7) + (baseP * 1.1) + (baseK * 0.9);
-  const modelCarbon = res.carbon_kg_ha ?? 0;
-  const carbonSavings = baseCarbon - modelCarbon;
+  // Compute total baseline footprint then scale to acre to display
+  const baseCarbonAcre = (baseN * 6.7) + (baseP * 1.1) + (baseK * 0.9);
+  const modelCarbonAcre = kgHaToKgAcre(res.carbon_kg_ha ?? 0);
+  const carbonSavings = baseCarbonAcre - modelCarbonAcre;
   const saved = carbonSavings > 0;
 
   return (
     <div className="mt-6 border-t border-gray-100 pt-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-2">Historical Plan Comparison</h3>
-      <p className="text-sm text-gray-500 mb-4">Enter the farmer's traditional application rate (kg/ha) to calculate sustainability ROI.</p>
+      <p className="text-sm text-gray-500 mb-4">Enter the farmer's traditional application rate (kg/acre) to calculate sustainability ROI.</p>
       <div className="grid grid-cols-3 gap-3 mb-4">
         <input type="number" placeholder="Trad. N" value={baseline.N} onChange={e => setBaseline({ ...baseline, N: e.target.value })} className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none bg-gray-50" />
         <input type="number" placeholder="Trad. P" value={baseline.P} onChange={e => setBaseline({ ...baseline, P: e.target.value })} className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none bg-gray-50" />
@@ -42,7 +42,7 @@ function BaselineComparison({ res }) {
             {saved ? "🌱 Sustainable Reduction Achieved" : "⚠️ ML Recommends Higher Nutrients"}
           </p>
           <p className={`text-2xl font-bold mt-1 ${saved ? "text-emerald-700" : "text-amber-700"}`}>
-            {saved ? "-" : "+"}{Math.abs(carbonSavings).toFixed(1)} kg CO₂e / ha
+            {saved ? "-" : "+"}{Math.abs(carbonSavings).toFixed(1)} kg CO₂e / acre
           </p>
           <p className="text-xs text-gray-600 mt-1">Difference vs. traditional baseline</p>
         </div>
@@ -58,13 +58,6 @@ export default function Results() {
   const [downloading, setDownloading] = useState(false);
   const [companyName, setCompanyName] = useState(() => localStorage.getItem("brand_company") || "");
   const [consultantName, setConsultantName] = useState(() => localStorage.getItem("brand_consultant") || "");
-
-  const [unit, setUnit] = useState(() => localStorage.getItem("pref_unit") || "acre");
-  useEffect(() => {
-    const handler = () => setUnit(localStorage.getItem("pref_unit") || "acre");
-    window.addEventListener("unitChange", handler);
-    return () => window.removeEventListener("unitChange", handler);
-  }, []);
 
   const persistedResult = useMemo(() => {
     if (state?.result) return state.result;
@@ -124,17 +117,17 @@ export default function Results() {
   const barData = [
     {
       name: "Nitrogen",
-      value: res.predictions?.N_kg_ha ?? res.predictions?.N ?? 0,
+      value: kgHaToKgAcre(res.predictions?.N_kg_ha ?? res.predictions?.N ?? 0),
     },
     {
       name: "Phosphorus",
-      value: res.predictions?.P_kg_ha ?? res.predictions?.P ?? 0,
+      value: kgHaToKgAcre(res.predictions?.P_kg_ha ?? res.predictions?.P ?? 0),
     },
     {
       name: "Potassium",
-      value: res.predictions?.K_kg_ha ?? res.predictions?.K ?? 0,
+      value: kgHaToKgAcre(res.predictions?.K_kg_ha ?? res.predictions?.K ?? 0),
     },
-    { name: "Yield", value: res.predictions?.yield_kg_ha ?? 0 },
+    { name: "Yield", value: kgHaToKgAcre(res.predictions?.yield_kg_ha ?? 0) },
   ];
 
   async function handleDownloadPDF() {
@@ -220,7 +213,7 @@ export default function Results() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-4 mt-6">
-          {renderTopMetrics(res, unit)}
+          {renderTopMetrics(res)}
         </div>
       </div>
 
@@ -282,8 +275,8 @@ export default function Results() {
           <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100 space-y-3">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Carbon & weather impact</h3>
             <p className="text-4xl font-semibold text-gray-900">
-              {res.carbon_kg_ha ?? res.carbon ?? "—"}{" "}
-              <span className="text-base text-gray-500">kg CO₂e / ha</span>
+              {kgHaToKgAcre(res.carbon_kg_ha ?? res.carbon ?? 0).toFixed(1)}{" "}
+              <span className="text-base text-gray-500">kg CO₂e / acre</span>
             </p>
             <p className="text-sm text-gray-500">
               Estimated carbon footprint for this nutrient plan.
@@ -334,7 +327,6 @@ export default function Results() {
           <BlendCard
             title="Fertilizer Blend Optimizer (Real Market SKU Based)"
             blend={res.fertilizer_blend}
-            unit={unit}
           />
         </div>
       </div>
@@ -355,10 +347,9 @@ function Metric({ value, label, unit }) {
   );
 }
 
-function renderTopMetrics(res, unit) {
+function renderTopMetrics(res) {
   const blend = res.fertilizer_blend;
   const products = blend?.products || [];
-  const isHa = unit === "ha";
 
   if (products.length) {
     const findProduct = (prefix) =>
@@ -370,13 +361,13 @@ function renderTopMetrics(res, unit) {
 
     return (
       <>
-        <Metric value={isHa ? urea?.rate_kg_ha : urea?.rate_kg_acre ?? null} label="Urea (46-0-0)" unit={isHa ? "kg/ha" : "kg/acre"} />
-        <Metric value={isHa ? dap?.rate_kg_ha : dap?.rate_kg_acre ?? null} label="DAP (18-46-0)" unit={isHa ? "kg/ha" : "kg/acre"} />
-        <Metric value={isHa ? mop?.rate_kg_ha : mop?.rate_kg_acre ?? null} label="MOP (0-0-60)" unit={isHa ? "kg/ha" : "kg/acre"} />
+        <Metric value={urea?.rate_kg_acre ?? null} label="Urea (46-0-0)" unit="kg/acre" />
+        <Metric value={dap?.rate_kg_acre ?? null} label="DAP (18-46-0)" unit="kg/acre" />
+        <Metric value={mop?.rate_kg_acre ?? null} label="MOP (0-0-60)" unit="kg/acre" />
         <Metric
-          value={isHa ? res.predictions?.yield_kg_ha : kgHaToKgAcre(res.predictions?.yield_kg_ha)}
+          value={kgHaToKgAcre(res.predictions?.yield_kg_ha)}
           label="Expected yield"
-          unit={isHa ? "kg/ha" : "kg/acre"}
+          unit="kg/acre"
         />
       </>
     );
@@ -386,24 +377,24 @@ function renderTopMetrics(res, unit) {
   return (
     <>
       <Metric
-        value={isHa ? res.predictions?.N_kg_ha : kgHaToKgAcre(res.predictions?.N_kg_ha)}
+        value={kgHaToKgAcre(res.predictions?.N_kg_ha)}
         label="Nitrogen (N)"
-        unit={isHa ? "kg/ha" : "kg/acre"}
+        unit="kg/acre"
       />
       <Metric
-        value={isHa ? res.predictions?.P_kg_ha : kgHaToKgAcre(res.predictions?.P_kg_ha)}
+        value={kgHaToKgAcre(res.predictions?.P_kg_ha)}
         label="Phosphorus (P)"
-        unit={isHa ? "kg/ha" : "kg/acre"}
+        unit="kg/acre"
       />
       <Metric
-        value={isHa ? res.predictions?.K_kg_ha : kgHaToKgAcre(res.predictions?.K_kg_ha)}
+        value={kgHaToKgAcre(res.predictions?.K_kg_ha)}
         label="Potassium (K)"
-        unit={isHa ? "kg/ha" : "kg/acre"}
+        unit="kg/acre"
       />
       <Metric
-        value={isHa ? res.predictions?.yield_kg_ha : kgHaToKgAcre(res.predictions?.yield_kg_ha)}
+        value={kgHaToKgAcre(res.predictions?.yield_kg_ha)}
         label="Expected yield"
-        unit={isHa ? "kg/ha" : "kg/acre"}
+        unit="kg/acre"
       />
     </>
   );
@@ -442,7 +433,7 @@ function KeyValueCard({ title, payload }) {
   );
 }
 
-function BlendCard({ title, blend, unit }) {
+function BlendCard({ title, blend }) {
   if (!blend || typeof blend !== "object" || Object.keys(blend).length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
@@ -463,7 +454,7 @@ function BlendCard({ title, blend, unit }) {
               <tr>
                 <th className="px-3 py-2">Product</th>
                 <th className="px-3 py-2 text-right">N-P-K</th>
-                <th className="px-3 py-2 text-right">Rate (kg/{unit === "ha" ? "ha" : "acre"})</th>
+                <th className="px-3 py-2 text-right">Rate (kg/acre)</th>
               </tr>
             </thead>
             <tbody>
@@ -473,7 +464,7 @@ function BlendCard({ title, blend, unit }) {
                   <td className="px-3 py-2 text-right">
                     {p.N_pct}-{p.P_pct}-{p.K_pct}
                   </td>
-                  <td className="px-3 py-2 text-right">{unit === "ha" ? p.rate_kg_ha : p.rate_kg_acre}</td>
+                  <td className="px-3 py-2 text-right">{p.rate_kg_acre}</td>
                 </tr>
               ))}
             </tbody>
@@ -503,9 +494,9 @@ function PlanTable({ plan = [], title, notes }) {
           <tr className="text-xs uppercase text-gray-400">
             <th className="py-1">Stage</th>
             <th className="py-1">Application</th>
-            <th className="py-1">N</th>
-            <th className="py-1">P</th>
-            <th className="py-1">K</th>
+            <th className="py-1">N (kg/acre)</th>
+            <th className="py-1">P (kg/acre)</th>
+            <th className="py-1">K (kg/acre)</th>
           </tr>
         </thead>
         <tbody>
@@ -513,9 +504,9 @@ function PlanTable({ plan = [], title, notes }) {
             <tr key={`${row.day}-${idx}`} className="border-t border-gray-100">
               <td className="py-2">{row.day}</td>
               <td>{row.application}</td>
-              <td>{row.N_kg_ha ?? "—"}</td>
-              <td>{row.P_kg_ha ?? "—"}</td>
-              <td>{row.K_kg_ha ?? "—"}</td>
+              <td>{row.N_kg_ha != null ? kgHaToKgAcre(row.N_kg_ha).toFixed(1) : "—"}</td>
+              <td>{row.P_kg_ha != null ? kgHaToKgAcre(row.P_kg_ha).toFixed(1) : "—"}</td>
+              <td>{row.K_kg_ha != null ? kgHaToKgAcre(row.K_kg_ha).toFixed(1) : "—"}</td>
             </tr>
           ))}
         </tbody>

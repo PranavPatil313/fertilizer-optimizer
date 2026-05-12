@@ -8,6 +8,7 @@ import {
 } from "../api/api";
 import useAuth from "../auth/useAuth";
 import { getWorkspaceVersion, subscribeWorkspaceUpdate } from "../utils/workspaceEvents";
+import { kgHaToKgAcre, kgAcreToKgHa } from "../utils/unitConversion";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -116,7 +117,7 @@ export default function Dashboard() {
   }, []);
 
   async function handleLogHarvest(predictionId) {
-    const val = window.prompt("Enter actual harvested yield (kg/ha) for this plot:");
+    const val = window.prompt("Enter actual harvested yield (kg/acre) for this plot:");
     if (!val) return;
     const num = parseFloat(val);
     if (isNaN(num) || num <= 0) {
@@ -129,7 +130,7 @@ export default function Dashboard() {
       const res = await fetch(`${apiBase}/predictions/${predictionId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ actual_yield_kg_ha: num })
+        body: JSON.stringify({ actual_yield_kg_ha: kgAcreToKgHa(num) })
       });
       if (!res.ok) throw new Error("Failed to save harvest data");
       setRefreshTick(Date.now());
@@ -256,9 +257,9 @@ export default function Dashboard() {
     // Reverse to show oldest to newest left-to-right
     return [...predictions].reverse().map(p => {
        const date = new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-       const yieldVal = p.result?.predictions?.yield_kg_ha || p.result?.preds?.yield_kg_ha || 0;
-       const actualYieldVal = p.result?.feedback?.actual_yield_kg_ha || null;
-       const carbonVal = p.result?.carbon_kg_ha || p.result?.carbon?.co2eq_kg_ha || p.result?.carbon || 0;
+       const yieldVal = kgHaToKgAcre(p.result?.predictions?.yield_kg_ha || p.result?.preds?.yield_kg_ha || 0);
+       const actualYieldVal = p.result?.feedback?.actual_yield_kg_ha ? kgHaToKgAcre(p.result.feedback.actual_yield_kg_ha) : null;
+       const carbonVal = kgHaToKgAcre(p.result?.carbon_kg_ha || p.result?.carbon?.co2eq_kg_ha || p.result?.carbon || 0);
        return {
           date: date,
           Yield: yieldVal,
@@ -383,7 +384,7 @@ export default function Dashboard() {
                   activeMetric === "Yield" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                Yield (kg/ha)
+                Yield (kg/acre)
               </button>
               <button
                 onClick={() => setActiveMetric("Carbon")}
@@ -391,7 +392,7 @@ export default function Dashboard() {
                   activeMetric === "Carbon" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                Carbon (kg CO₂)
+                Carbon (kg CO₂/acre)
               </button>
             </div>
           </div>
@@ -572,17 +573,17 @@ export default function Dashboard() {
             {predictions.length > 0 && (
               <button
                 onClick={() => {
-                  const rows = [["Date", "Plot ID", "Crop", "Yield Predicted (kg/ha)", "Actual Yield (kg/ha)", "Carbon (kg CO2e/ha)", "N (kg/ha)", "P (kg/ha)", "K (kg/ha)"]];
+                  const rows = [["Date", "Plot ID", "Crop", "Yield Predicted (kg/acre)", "Actual Yield (kg/acre)", "Carbon (kg CO2e/acre)", "N (kg/acre)", "P (kg/acre)", "K (kg/acre)"]];
                   predictions.forEach(p => {
                     const plot = plots.find(pl => pl.id === p.plot_id);
                     const crop = plot?.data?.crop_type || "Unknown";
                     const date = new Date(p.created_at).toLocaleDateString();
-                    const y_pred = p.result?.predictions?.yield_kg_ha?.toFixed(1) || "";
-                    const y_act = p.result?.feedback?.actual_yield_kg_ha || "";
-                    const co2 = p.result?.carbon_kg_ha?.toFixed(1) || "";
-                    const n = p.result?.predictions?.N_kg_ha?.toFixed(1) || "";
-                    const phos = p.result?.predictions?.P_kg_ha?.toFixed(1) || "";
-                    const k = p.result?.predictions?.K_kg_ha?.toFixed(1) || "";
+                    const y_pred = p.result?.predictions?.yield_kg_ha ? kgHaToKgAcre(p.result.predictions.yield_kg_ha).toFixed(1) : "";
+                    const y_act = p.result?.feedback?.actual_yield_kg_ha ? kgHaToKgAcre(p.result.feedback.actual_yield_kg_ha).toFixed(1) : "";
+                    const co2 = p.result?.carbon_kg_ha ? kgHaToKgAcre(p.result.carbon_kg_ha).toFixed(1) : "";
+                    const n = p.result?.predictions?.N_kg_ha ? kgHaToKgAcre(p.result.predictions.N_kg_ha).toFixed(1) : "";
+                    const phos = p.result?.predictions?.P_kg_ha ? kgHaToKgAcre(p.result.predictions.P_kg_ha).toFixed(1) : "";
+                    const k = p.result?.predictions?.K_kg_ha ? kgHaToKgAcre(p.result.predictions.K_kg_ha).toFixed(1) : "";
                     rows.push([date, p.plot_id, crop, y_pred, y_act, co2, n, phos, k]);
                   });
                   const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
@@ -633,10 +634,12 @@ export default function Dashboard() {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {prediction.result?.predictions && Object.entries(prediction.result.predictions).map(([k, v]) => {
-                      if (v == null || typeof v === "object") return null;
+                      if (v == null || typeof v === "object" || k === "insights") return null;
+                      const isKgHa = k.includes('_kg_ha');
+                      const displayVal = (isKgHa && typeof v === 'number') ? kgHaToKgAcre(v) : v;
                       return (
                         <span key={k} className="inline-flex items-center px-2 py-1 rounded border border-slate-100 bg-slate-50 text-[10px] sm:text-[11px] text-slate-700 font-medium">
-                          <span className="text-slate-400 mr-1 uppercase tracking-wider">{k.replace('_kg_ha', '').replace('_pct', '')}</span> {typeof v === 'number' ? v.toFixed(1) : v}
+                          <span className="text-slate-400 mr-1 uppercase tracking-wider">{k.replace('_kg_ha', '').replace('_pct', '')}</span> {typeof displayVal === 'number' ? displayVal.toFixed(1) : displayVal}
                         </span>
                       );
                     })}
@@ -675,7 +678,7 @@ export default function Dashboard() {
                       </button>
                     ) : (
                       <span className="text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 font-medium">
-                        Actual: {prediction.result.feedback.actual_yield_kg_ha} kg/ha
+                        Actual: {kgHaToKgAcre(prediction.result.feedback.actual_yield_kg_ha).toFixed(1)} kg/acre
                       </span>
                     )}
                   </div>

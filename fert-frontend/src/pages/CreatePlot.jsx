@@ -210,13 +210,6 @@ export default function CreatePlot() {
   const debouncedPayload = useDebounce(payload, 800);
 
   const displayFields = useMemo(() => sections, []);
-  
-  const [unit, setUnit] = useState(() => localStorage.getItem("pref_unit") || "acre");
-  useEffect(() => {
-    const handler = () => setUnit(localStorage.getItem("pref_unit") || "acre");
-    window.addEventListener("unitChange", handler);
-    return () => window.removeEventListener("unitChange", handler);
-  }, []);
 
   function setField(k, v) {
     setPayload((prev) => {
@@ -498,23 +491,22 @@ export default function CreatePlot() {
                   preview.predictions,
                   payload.crop_type
                 );
-                const isHa = unit === "ha";
 
                 const cards = [
                   {
                     key: "urea",
                     label: "Urea (46-0-0)",
-                    value: isHa ? blend?.urea?.kgHa : blend?.urea?.kgAcre,
+                    value: blend?.urea?.kgAcre,
                   },
                   {
                     key: "dap",
                     label: "DAP (18-46-0)",
-                    value: isHa ? blend?.dap?.kgHa : blend?.dap?.kgAcre,
+                    value: blend?.dap?.kgAcre,
                   },
                   {
                     key: "mop",
                     label: "MOP (0-0-60)",
-                    value: isHa ? blend?.mop?.kgHa : blend?.mop?.kgAcre,
+                    value: blend?.mop?.kgAcre,
                   },
                 ];
 
@@ -523,9 +515,9 @@ export default function CreatePlot() {
                 if (blend?.npkHa) {
                   const { N, P, K } = blend.npkHa;
                   const carbonKgHa = N * 6.7 + P * 1.1 + K * 0.9;
-                  const cVal = isHa ? carbonKgHa : kgHaToKgAcre(carbonKgHa);
+                  const cVal = kgHaToKgAcre(carbonKgHa);
                   if (typeof cVal === "number" && !Number.isNaN(cVal)) {
-                    carbonDisplay = `${cVal.toFixed(1)} kg CO₂e/${isHa ? "ha" : "acre"}`;
+                    carbonDisplay = `${cVal.toFixed(1)} kg CO₂e/acre`;
                   }
                 }
 
@@ -543,7 +535,7 @@ export default function CreatePlot() {
                           <p className="text-2xl font-semibold text-green-900">
                             {typeof card.value === "number" ? card.value.toFixed(1) : "—"}
                           </p>
-                          <p className="text-[11px] text-green-600">kg/{isHa ? "ha" : "acre"}</p>
+                          <p className="text-[11px] text-green-600">kg/acre</p>
                         </div>
                       ))}
                     </div>
@@ -555,9 +547,9 @@ export default function CreatePlot() {
                       <p className="text-3xl font-semibold text-gray-900">
                         {typeof preview.predictions?.yield_kg_ha === "number"
                           ? (() => {
-                              const yVal = isHa ? preview.predictions.yield_kg_ha : kgHaToKgAcre(preview.predictions.yield_kg_ha);
+                              const yVal = kgHaToKgAcre(preview.predictions.yield_kg_ha);
                               return yVal !== null
-                                ? `${yVal.toFixed(0)} kg/${isHa ? "ha" : "acre"}`
+                                ? `${yVal.toFixed(0)} kg/acre`
                                 : "—";
                             })()
                           : "—"}
