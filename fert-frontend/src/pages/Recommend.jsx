@@ -2,11 +2,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { buildHeaders } from "../api/api";
-import NpkChart from "../widgets/NpkChart";
-import YieldChart from "../widgets/YieldChart";
-import CarbonChart from "../widgets/CarbonChart";
 import { emitWorkspaceUpdate } from "../utils/workspaceEvents";
 import { kgHaToKgAcre } from "../utils/unitConversion";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid
+} from "recharts";
 
 const workflow = [
   { step: "Capture", detail: "Use Create Plot to save local soil + weather profile." },
@@ -36,6 +45,163 @@ function DataCards({ data }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function NpkPieChart({ N, P, K }) {
+  const data = [
+    { name: "Nitrogen (N)", value: N ?? 0, color: "#10b981" },
+    { name: "Phosphorus (P)", value: P ?? 0, color: "#0ea5e9" },
+    { name: "Potassium (K)", value: K ?? 0, color: "#f59e0b" },
+  ];
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          innerRadius="50%"
+          outerRadius="80%"
+          paddingAngle={4}
+          dataKey="value"
+          animationBegin={300}
+          animationDuration={1200}
+          animationEasing="ease-out"
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
+          ))}
+        </Pie>
+        <Tooltip 
+          formatter={(value) => `${value.toFixed(1)} kg/ha`} 
+          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function AnimatedYieldChart({ yieldKg }) {
+  const data = [{ name: "Yield", value: yieldKg ?? 0 }];
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+        <Tooltip 
+          cursor={{ fill: "transparent" }} 
+          formatter={(val) => `${val.toFixed(0)} kg/ha`} 
+          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+        />
+        <Bar 
+          dataKey="value" 
+          fill="#3b82f6" 
+          radius={[6, 6, 0, 0]} 
+          animationBegin={500} 
+          animationDuration={1200} 
+          animationEasing="ease-out"
+          barSize={60}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function AnimatedCarbonChart({ co2 }) {
+  const data = [{ name: "Carbon", value: co2 ?? 0 }];
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+        <XAxis type="number" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+        <YAxis type="category" dataKey="name" hide />
+        <Tooltip 
+          cursor={{ fill: "transparent" }} 
+          formatter={(val) => `${val.toFixed(1)} kg CO₂/ha`} 
+          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+        />
+        <Bar 
+          dataKey="value" 
+          fill="#64748b" 
+          radius={[0, 6, 6, 0]} 
+          animationBegin={700} 
+          animationDuration={1200} 
+          animationEasing="ease-out"
+          barSize={40} 
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function PlanTable({ plan = [], notes }) {
+  if (!plan || plan.length === 0) return <p className="text-xs text-slate-500 mt-2">No plan available.</p>;
+  return (
+    <div className="mt-3">
+      <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-sm">
+        <table className="min-w-full text-xs text-left text-slate-700">
+          <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-400">
+            <tr>
+              <th className="px-3 py-2">Day</th>
+              <th className="px-3 py-2">Application</th>
+              <th className="px-3 py-2 text-right">N (kg/ha)</th>
+              <th className="px-3 py-2 text-right">P (kg/ha)</th>
+              <th className="px-3 py-2 text-right">K (kg/ha)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plan.map((row, idx) => (
+              <tr key={`${row.day}-${idx}`} className="border-t border-slate-100 hover:bg-slate-50/50">
+                <td className="px-3 py-2 font-medium">{row.day === 0 ? "0 (Basal)" : row.day}</td>
+                <td className="px-3 py-2">{row.application}</td>
+                <td className="px-3 py-2 text-right text-emerald-700 font-medium">{row.N_kg_ha}</td>
+                <td className="px-3 py-2 text-right text-sky-700 font-medium">{row.P_kg_ha}</td>
+                <td className="px-3 py-2 text-right text-amber-600 font-medium">{row.K_kg_ha}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {notes && notes.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {notes.map((note, idx) => (
+            <p key={idx} className="text-xs text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-100 flex gap-2">
+              <span className="font-bold">Note:</span> {note}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrganicCards({ data }) {
+  if (!data || Object.keys(data).length === 0) {
+    return <p className="text-xs text-slate-500 mt-2">No organic substitute data available.</p>;
+  }
+  const { replace_pct, ...rest } = data;
+  return (
+    <div className="mt-3">
+      {replace_pct > 0 && (
+        <p className="text-xs text-emerald-700 bg-emerald-50 inline-block px-3 py-1.5 rounded-lg mb-3 font-medium border border-emerald-100">
+          Replacing {(replace_pct * 100).toFixed(0)}% of synthetic nutrients with Farm Yard Manure (FYM)
+        </p>
+      )}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {Object.entries(rest).map(([key, val]) => {
+          if (val === null || val === undefined) return null;
+          const formattedKey = key.replace(/_/g, " ").replace("kg ha", "(kg/ha)");
+          return (
+            <div key={key} className="rounded-xl border border-slate-100 bg-slate-50 p-3 shadow-sm hover:shadow-md transition-shadow">
+              <h4 className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{formattedKey}</h4>
+              <p className="text-lg font-semibold text-slate-800">{val}</p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -252,34 +418,47 @@ export default function Recommend() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <div 
-                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md"
+                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md flex flex-col min-h-[220px]"
                 style={{ animationDelay: "300ms" }}
               >
-                <p className="text-sm font-semibold text-slate-900">NPK profile</p>
-                <NpkChart
-                  N={response.predictions?.N_kg_ha}
-                  P={response.predictions?.P_kg_ha}
-                  K={response.predictions?.K_kg_ha}
-                />
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">NPK profile</p>
+                  <div className="flex gap-1.5 items-center">
+                    <span className="w-2 h-2 rounded-full bg-[#10b981]" title="Nitrogen"></span>
+                    <span className="w-2 h-2 rounded-full bg-[#0ea5e9]" title="Phosphorus"></span>
+                    <span className="w-2 h-2 rounded-full bg-[#f59e0b]" title="Potassium"></span>
+                  </div>
+                </div>
+                <div className="flex-1 mt-2 relative min-h-[160px]">
+                  <NpkPieChart
+                    N={response.predictions?.N_kg_ha}
+                    P={response.predictions?.P_kg_ha}
+                    K={response.predictions?.K_kg_ha}
+                  />
+                </div>
               </div>
               <div 
-                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md"
+                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md flex flex-col min-h-[220px]"
                 style={{ animationDelay: "400ms" }}
               >
                 <p className="text-sm font-semibold text-slate-900">Yield projection</p>
-                <YieldChart
-                  yieldKg={
-                    response.predictions?.yield_kg_ha_weather_adjusted ??
-                    response.predictions?.yield_kg_ha
-                  }
-                />
+                <div className="flex-1 mt-2 relative min-h-[160px]">
+                  <AnimatedYieldChart
+                    yieldKg={
+                      response.predictions?.yield_kg_ha_weather_adjusted ??
+                      response.predictions?.yield_kg_ha
+                    }
+                  />
+                </div>
               </div>
               <div 
-                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md"
+                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md flex flex-col min-h-[220px]"
                 style={{ animationDelay: "500ms" }}
               >
                 <p className="text-sm font-semibold text-slate-900">Carbon impact</p>
-                <CarbonChart co2={response.carbon_kg_ha} />
+                <div className="flex-1 mt-2 relative min-h-[160px]">
+                  <AnimatedCarbonChart co2={response.carbon_kg_ha} />
+                </div>
               </div>
             </div>
           </section>
@@ -298,15 +477,11 @@ export default function Recommend() {
                   Open deployment view →
                 </button>
               </div>
-              <pre className="mt-2 max-h-56 overflow-auto rounded-2xl bg-slate-50 p-4 text-xs text-slate-700">
-                {JSON.stringify(response.recommendation, null, 2)}
-              </pre>
+              <PlanTable plan={response.recommendation?.plan} notes={response.recommendation?.notes} />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Organic substitute</h3>
-              <pre className="mt-2 max-h-56 overflow-auto rounded-2xl bg-slate-50 p-4 text-xs text-slate-700">
-                {JSON.stringify(response.organic_substitute, null, 2)}
-              </pre>
+              <OrganicCards data={response.organic_substitute} />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900">
