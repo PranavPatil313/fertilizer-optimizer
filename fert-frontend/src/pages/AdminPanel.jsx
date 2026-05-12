@@ -58,7 +58,7 @@ export default function AdminPanel() {
   async function refreshAll() {
     setError("");
     try {
-      const [ov, us, ds, jb, pl, pr] = await Promise.all([
+      const results = await Promise.allSettled([
         fetchAdminOverview(),
         fetchAdminUsers(),
         fetchAdminDatasets(),
@@ -66,12 +66,20 @@ export default function AdminPanel() {
         fetchAdminPlots(),
         fetchAdminPredictions(),
       ]);
-      setOverview(ov);
-      setUsers(us);
-      setDatasets(ds);
-      setJobs(jb);
-      setPlots(pl);
-      setPredictions(pr);
+      
+      if (results[0].status === "fulfilled") setOverview(results[0].value);
+      if (results[1].status === "fulfilled") setUsers(results[1].value);
+      if (results[2].status === "fulfilled") setDatasets(results[2].value);
+      if (results[3].status === "fulfilled") setJobs(results[3].value);
+      if (results[4].status === "fulfilled") setPlots(results[4].value);
+      if (results[5].status === "fulfilled") setPredictions(results[5].value);
+
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length > 0) {
+        console.error("Some admin fetches failed:", failures.map((f) => f.reason));
+        const firstError = failures[0].reason;
+        setError(firstError?.response?.data?.detail || firstError?.message || "Failed to load some admin data.");
+      }
     } catch (err) {
       console.error("Admin fetch failed", err);
       setError(err.response?.data?.detail || err.message || "Failed to load admin data.");

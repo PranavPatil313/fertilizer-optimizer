@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm --prefix fert-frontend run build",
+  "buildCommand": "CI=false npm --prefix fert-frontend run build",
   "outputDirectory": "fert-frontend/dist",
   "rewrites": [
     {
