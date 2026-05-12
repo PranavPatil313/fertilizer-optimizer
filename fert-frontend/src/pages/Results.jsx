@@ -109,6 +109,13 @@ export default function Results() {
 
   return (
     <div className="space-y-6">
+      <style>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
       <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
@@ -126,7 +133,11 @@ export default function Results() {
             <button
               onClick={handleDownloadPDF}
               disabled={downloading}
-              className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-green-800 disabled:opacity-50"
+              className={`rounded-full px-5 py-2 text-sm font-semibold text-white shadow disabled:opacity-80 transition-all ${
+                downloading
+                  ? "bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 bg-[length:200%_200%] animate-[gradientShift_2s_ease_infinite]"
+                  : "bg-green-700 hover:bg-green-800"
+              }`}
             >
               {downloading ? "Preparing…" : "Download PDF"}
             </button>
@@ -455,4 +466,3 @@ function normalizeResultPayload(result) {
     prediction_id: base.prediction_id ?? result.prediction_id ?? null,
   };
 }
-

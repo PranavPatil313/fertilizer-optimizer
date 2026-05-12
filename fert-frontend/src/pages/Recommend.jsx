@@ -46,6 +46,7 @@ export default function Recommend() {
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const primaryStats = useMemo(() => {
     if (!response?.predictions) return [];
@@ -138,6 +139,7 @@ export default function Recommend() {
       setError("No input available for report.");
       return;
     }
+    setPdfLoading(true);
     try {
       const resp = await api.post("/report", input, {
         headers: buildHeaders({ includeAuth: true, includeApiKey: true }),
@@ -148,6 +150,8 @@ export default function Recommend() {
       window.open(url, "_blank");
     } catch (err) {
       setError(err.response?.data?.detail || err.message || "Could not generate PDF");
+    } finally {
+      setPdfLoading(false);
     }
   }
 
@@ -165,6 +169,11 @@ export default function Recommend() {
           0% { opacity: 0; transform: scale(0.95); }
           100% { opacity: 1; transform: scale(1); }
         }
+      @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
         .animate-zoom-in {
           animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
@@ -188,9 +197,14 @@ export default function Recommend() {
             </button>
             <button
               onClick={previewPdf}
-              className="w-full sm:w-auto rounded-lg sm:rounded-full border border-slate-200 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-slate-700 transition-all hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md min-h-touch"
+              disabled={pdfLoading}
+              className={`w-full sm:w-auto rounded-lg sm:rounded-full px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold transition-all min-h-touch disabled:opacity-80 disabled:hover:translate-y-0 ${
+                pdfLoading
+                  ? "bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 bg-[length:200%_200%] animate-[gradientShift_2s_ease_infinite] text-white shadow border-transparent"
+                  : "border border-slate-200 text-slate-700 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md"
+              }`}
             >
-              Preview PDF
+              {pdfLoading ? "Generating..." : "Preview PDF"}
             </button>
           </div>
         </div>

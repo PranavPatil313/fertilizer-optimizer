@@ -7,6 +7,7 @@ from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+from reportlab.lib.colors import HexColor
 from .carbon import compute_co2eq_from_npk
 from datetime import datetime, UTC 
 
@@ -332,8 +333,7 @@ def generate_pdf_report(preds: Dict[str,float],
                         weather: Dict[str,Any] | None = None,
                         out_path: str = None) -> str:
     """
-    Generate a simple PDF report saved to out_path (if None, will create timestamped file in src/artifact/).
-    Returns the path to the saved PDF.
+    Generate a beautiful, colorful PDF report saved to out_path.
     """
     base_dir = os.path.join(os.path.dirname(__file__), "artifact")
     os.makedirs(base_dir, exist_ok=True)
@@ -346,28 +346,46 @@ def generate_pdf_report(preds: Dict[str,float],
 
     margin = 20*mm
     x = margin
-    y = height - margin
 
-    # Title
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(x, y, "FertilizerOptimizer — Recommendation Report")
-    y -= 10*mm
+    def draw_header():
+        c.setFillColor(HexColor("#059669")) # Emerald-600
+        c.rect(0, height - 30*mm, width, 30*mm, fill=1, stroke=0)
+        c.setFillColor(HexColor("#ffffff"))
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(x, height - 18*mm, "FertilizerOptimizer — Agronomy Report")
+        return height - 40*mm
 
-    # Input summary
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x, y, "Plot / Input Summary")
-    y -= 6*mm
+    y = draw_header()
+
+    def check_page(current_y, needed=20*mm):
+        if current_y < margin + needed:
+            c.showPage()
+            return height - margin
+        return current_y
+
+    def section_title(title, current_y):
+        current_y = check_page(current_y, 25*mm)
+        c.setFillColor(HexColor("#0f172a")) # Slate-900
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(x, current_y, title)
+        c.setStrokeColor(HexColor("#10b981")) # Emerald-500
+        c.setLineWidth(1.5)
+        c.line(x, current_y - 2*mm, x + 60*mm, current_y - 2*mm)
+        return current_y - 8*mm
+
+    # Plot Summary
+    y = section_title("Plot / Input Summary", y)
+    c.setFillColor(HexColor("#334155")) # Slate-700
     c.setFont("Helvetica", 10)
     for k in ["crop_type","soil_type","region","area_acre","crop_duration_days","irrigation_type","avg_temp","rainfall_mm"]:
         val = input_dict.get(k, "")
-        c.drawString(x, y, f"{k}: {val}")
+        c.drawString(x, y, f"{str(k).replace('_', ' ').title()}: {val}")
         y -= 5*mm
 
     y -= 3*mm
-    # Predictions (model-internal NPK outputs)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x, y, "Model Predictions (internal NPK basis)")
-    y -= 6*mm
+    # Predictions
+    y = section_title("Model Predictions (internal NPK basis)", y)
+    c.setFillColor(HexColor("#334155"))
     c.setFont("Helvetica", 10)
     for k, label in [
         ("N_kg_ha", "Nitrogen requirement (kg/ha)"),
@@ -379,12 +397,11 @@ def generate_pdf_report(preds: Dict[str,float],
         c.drawString(x, y, f"{label}: {v}")
         y -= 5*mm
 
-    # Product blend view (Urea / DAP / MOP)
+    # Product Blend
     if blend and isinstance(blend, dict):
-        y -= 4*mm
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(x, y, "Fertilizer Blend (Urea / DAP / MOP)")
-        y -= 6*mm
+        y -= 3*mm
+        y = section_title("Fertilizer Blend (Urea / DAP / MOP)", y)
+        c.setFillColor(HexColor("#334155"))
         c.setFont("Helvetica", 10)
 
         products: List[Dict[str, Any]] = blend.get("products") or []
@@ -395,22 +412,24 @@ def generate_pdf_report(preds: Dict[str,float],
             k_pct = p.get("K_pct", 0)
             rate_ha = p.get("rate_kg_ha", 0)
             rate_acre = p.get("rate_kg_acre", 0)
+            
+            c.setFillColor(HexColor("#10b981"))
+            c.circle(x + 2*mm, y + 1*mm, 1.5*mm, fill=1, stroke=0)
+            c.setFillColor(HexColor("#334155"))
+            
             c.drawString(
-                x,
+                x + 6*mm,
                 y,
                 f"{name} ({n_pct}-{p_pct}-{k_pct}) -> {rate_acre} kg/acre ({rate_ha} kg/ha)",
             )
             y -= 5*mm
-            if y < margin + 40*mm:
-                c.showPage()
-                y = height - margin
+            y = check_page(y)
 
-    # Weather snapshot (if available)
+    # Weather snapshot
     if weather:
-        y -= 4*mm
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(x, y, "Weather snapshot at recommendation time")
-        y -= 6*mm
+        y -= 3*mm
+        y = section_title("Weather Context & Risk", y)
+        c.setFillColor(HexColor("#334155"))
         c.setFont("Helvetica", 10)
         risk = weather.get("risk") or {}
         snap = weather.get("snapshot") or {}
@@ -430,13 +449,24 @@ def generate_pdf_report(preds: Dict[str,float],
             f"Humidity: {current.get('humidity', '–')}%   Wind: {current.get('wind_kph', '–')} km/h",
         )
         y -= 5*mm
+        
+        risk_band = risk.get('weather_risk_band', '–')
+        c.drawString(x, y, "Weather Risk: ")
+        if risk_band in ["High", "Extreme"]:
+            c.setFillColor(HexColor("#ea580c")) # Orange-600
+        elif risk_band == "Medium":
+            c.setFillColor(HexColor("#eab308")) # Yellow-500
+        else:
+            c.setFillColor(HexColor("#10b981")) # Emerald-500
+            
         c.drawString(
-            x,
+            x + 23*mm,
             y,
-            f"Weather Risk: {risk.get('weather_risk_band', '–')} "
-            f"(score {risk.get('weather_risk_score', '–')})",
+            f"{risk_band} (score {risk.get('weather_risk_score', '–')})"
         )
+        c.setFillColor(HexColor("#334155"))
         y -= 5*mm
+        
         if risk.get("safe_application_window"):
             c.drawString(
                 x,
@@ -451,35 +481,35 @@ def generate_pdf_report(preds: Dict[str,float],
                 f"Nitrogen loss risk: {risk['nitrogen_loss_risk']}",
             )
             y -= 5*mm
+        y = check_page(y)
 
-    y -= 4*mm
-    # Recommendation Plan (still expressed in NPK, backend basis)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x, y, "Recommended Application Plan")
-    y -= 6*mm
+    y -= 3*mm
+    # Application Plan
+    y = section_title("Recommended Application Plan", y)
+    c.setFillColor(HexColor("#334155"))
     c.setFont("Helvetica", 10)
     for event in rec.get("plan", []):
-        c.drawString(x, y, f"Day {event['day']}: {event['application']} -> N:{event['N_kg_ha']} kg/ha, P:{event['P_kg_ha']} kg/ha, K:{event['K_kg_ha']} kg/ha")
+        c.setFillColor(HexColor("#10b981"))
+        c.rect(x, y, 2.5*mm, 2.5*mm, fill=1, stroke=0)
+        c.setFillColor(HexColor("#334155"))
+        c.drawString(x + 6*mm, y, f"Day {event['day']}: {event['application']} -> N:{event['N_kg_ha']} kg/ha, P:{event['P_kg_ha']} kg/ha, K:{event['K_kg_ha']} kg/ha")
         y -= 5*mm
-        if y < margin + 40*mm:
-            c.showPage()
-            y = height - margin
+        y = check_page(y)
 
-    y -= 4*mm
+    y -= 3*mm
     # Soil health & carbon
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x, y, "Soil Health & Carbon")
-    y -= 6*mm
+    y = section_title("Soil Health & Carbon", y)
+    c.setFillColor(HexColor("#334155"))
     c.setFont("Helvetica", 10)
     c.drawString(x, y, f"Soil Health Index: {shi.get('soil_health_index', '')}")
     y -= 5*mm
     c.drawString(x, y, f"Carbon footprint (kgCO2e/ha): {round(co2,2)}")
-    y -= 8*mm
+    y -= 5*mm
 
     # Notes
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(x, y, "Notes")
-    y -= 6*mm
+    y -= 3*mm
+    y = section_title("Notes", y)
+    c.setFillColor(HexColor("#334155"))
     c.setFont("Helvetica", 10)
     notes = rec.get("notes", [])
     if not notes:
@@ -487,18 +517,20 @@ def generate_pdf_report(preds: Dict[str,float],
         y -= 5*mm
     else:
         for line in notes:
-            c.drawString(x, y, f"- {line}")
+            c.drawString(x, y, f"• {line[:100]}")
             y -= 5*mm
-            if y < margin + 40*mm:
-                c.showPage()
-                y = height - margin
+            if len(line) > 100:
+                c.drawString(x + 3*mm, y, line[100:200])
+                y -= 5*mm
+            y = check_page(y)
 
     # Footer
+    c.setFillColor(HexColor("#94a3b8")) # Slate-400
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(
     margin,
     15 * mm,
-    f"Generated by FertilizerOptimizer on {datetime.now(UTC).isoformat()}"
+    f"Generated by FertilizerOptimizer on {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}"
     )
     c.save()
     return out_path
