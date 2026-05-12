@@ -27,11 +27,11 @@ function StatCard({ label, value, tone = "emerald", delay = "0ms" }) {
   };
   return (
     <div 
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm opacity-0 animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default"
+      className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm opacity-0 animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default flex flex-col justify-center"
       style={{ animationDelay: delay }}
     >
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-2 text-3xl font-semibold ${toneMap[tone] || toneMap.emerald}`}>
+      <p className="text-[10px] sm:text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 sm:mt-2 text-2xl sm:text-3xl font-semibold ${toneMap[tone] || toneMap.emerald}`}>
         {value ?? "—"}
       </p>
     </div>
@@ -248,17 +248,26 @@ export default function AdminPanel() {
         .animate-fade-in-up {
           animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+        @keyframes fadeInRight {
+          0% { opacity: 0; transform: translateX(-10px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        .animate-fade-in-right {
+          animation: fadeInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
       `}</style>
 
       <div 
-        className="rounded-3xl bg-slate-900 p-6 text-white shadow-xl opacity-0 animate-fade-in-up transition-all duration-500 hover:shadow-2xl hover:scale-[1.01]"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 sm:p-8 text-white shadow-xl opacity-0 animate-fade-in-up transition-all duration-500 hover:shadow-2xl"
         style={{ animationDelay: "0ms" }}
       >
         <p className="text-xs uppercase tracking-[0.3em] text-slate-300">Admin Control</p>
-        <h1 className="mt-2 text-3xl font-semibold">Operations Console</h1>
-        <p className="mt-2 text-sm text-slate-300">
+        <h1 className="mt-2 text-2xl sm:text-3xl font-semibold">Operations Console</h1>
+        <p className="mt-2 text-sm text-slate-300 max-w-2xl">
           Manage datasets, trigger ML training jobs, oversee users, plots, and predictions.
         </p>
+        {/* Subtle decorative glow */}
+        <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
       </div>
 
       {error && (
@@ -267,7 +276,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-5">
         <StatCard label="Users" value={overview?.users} delay="100ms" />
         <StatCard label="Plots" value={overview?.plots} tone="indigo" delay="150ms" />
         <StatCard label="Predictions" value={overview?.predictions} tone="amber" delay="200ms" />
@@ -279,10 +288,10 @@ export default function AdminPanel() {
         className="grid gap-6 lg:grid-cols-2 opacity-0 animate-fade-in-up"
         style={{ animationDelay: "400ms" }}
       >
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
-          <div className="flex items-center justify-between">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <h2 className="text-lg font-semibold text-slate-900">Datasets</h2>
-            <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-md active:scale-95">
+            <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-md active:scale-95 text-center">
               {uploading ? "Uploading…" : "Upload CSV"}
               <input
                 type="file"
@@ -297,21 +306,25 @@ export default function AdminPanel() {
           <p className="text-xs text-slate-500 mb-3">
             Upload CSV datasets (≤200 MB). Files auto-clean before training eligibility.
           </p>
-          <div className="max-h-80 overflow-auto">
+          <div className="max-h-80 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2">Select</th>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Rows</th>
-                  <th>Actions</th>
+                <tr className="text-left text-slate-500 bg-slate-50">
+                  <th className="py-2 px-3 whitespace-nowrap rounded-tl-lg">Select</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Name</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Status</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Rows</th>
+                  <th className="py-2 px-3 whitespace-nowrap rounded-tr-lg">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {datasets.map((dataset) => (
-                  <tr key={dataset.id} className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80">
-                    <td className="py-2">
+                {datasets.map((dataset, idx) => (
+                  <tr 
+                    key={dataset.id} 
+                    className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80 opacity-0 animate-fade-in-right"
+                    style={{ animationDelay: `${idx * 50}ms` }}
+                  >
+                    <td className="py-3 px-3">
                       <input
                         type="checkbox"
                         disabled={dataset.status !== "processed" || !dataset.processed_path}
@@ -319,8 +332,8 @@ export default function AdminPanel() {
                         onChange={() => toggleDatasetSelection(dataset.id)}
                       />
                     </td>
-                    <td className="py-2">{dataset.name}</td>
-                    <td className="py-2">
+                    <td className="py-3 px-3 font-medium text-slate-700 whitespace-nowrap">{dataset.name}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span
                         className={`rounded-full px-2 py-1 text-xs font-semibold ${
                           dataset.status === "processed"
@@ -333,10 +346,10 @@ export default function AdminPanel() {
                         {dataset.status}
                       </span>
                     </td>
-                    <td className="py-2">
+                    <td className="py-3 px-3 whitespace-nowrap text-slate-500">
                       {dataset.row_count ? dataset.row_count.toLocaleString() : "—"}
                     </td>
-                    <td className="py-2 space-x-2">
+                    <td className="py-3 px-3 space-x-3 whitespace-nowrap">
                       <button
                         className="text-xs text-emerald-600 hover:underline"
                         onClick={() => handleDatasetAction(dataset.id, "reprocess")}
@@ -354,7 +367,7 @@ export default function AdminPanel() {
                 ))}
                 {datasets.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-4 text-center text-slate-500">
+                    <td colSpan={5} className="py-8 text-center text-slate-500">
                       No datasets uploaded yet.
                     </td>
                   </tr>
@@ -364,21 +377,21 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-lg font-semibold text-slate-900">Training Jobs</h2>
               {jobs.filter(j => j.status === "cancelled").length > 0 && (
                 <button
                   onClick={() => setShowCancelledJobs(!showCancelledJobs)}
-                  className="text-xs text-slate-500 hover:text-slate-700"
+                  className="text-xs text-slate-500 hover:text-slate-700 bg-slate-100 px-2 py-1 rounded-full transition-colors"
                 >
                   {showCancelledJobs ? "Hide cancelled" : `Show cancelled (${jobs.filter(j => j.status === "cancelled").length})`}
                 </button>
               )}
             </div>
             <button
-              className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-emerald-500 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+              className="rounded-full bg-emerald-600 px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-emerald-500 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
               onClick={handleTrainingStart}
               disabled={selectedDatasets.length === 0}
             >
@@ -394,24 +407,28 @@ export default function AdminPanel() {
           {trainingStatus && (
             <p className="text-xs text-emerald-600 mb-2">{trainingStatus}</p>
           )}
-          <div className="max-h-80 overflow-auto">
+          <div className="max-h-80 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2">Job</th>
-                  <th>Status</th>
-                  <th>Datasets</th>
-                  <th>Updated</th>
-                  <th>Actions</th>
+                <tr className="text-left text-slate-500 bg-slate-50">
+                  <th className="py-2 px-3 whitespace-nowrap rounded-tl-lg">Job</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Status</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Datasets</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Updated</th>
+                  <th className="py-2 px-3 whitespace-nowrap rounded-tr-lg">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {jobs
                   .filter(job => showCancelledJobs || job.status !== "cancelled")
-                  .map((job) => (
-                    <tr key={job.id} className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80">
-                      <td className="py-2 font-semibold text-slate-800">#{job.id}</td>
-                      <td className="py-2">
+                  .map((job, idx) => (
+                    <tr 
+                      key={job.id} 
+                      className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80 opacity-0 animate-fade-in-right"
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                    >
+                      <td className="py-3 px-3 font-semibold text-slate-800 whitespace-nowrap">#{job.id}</td>
+                      <td className="py-3 px-3 min-w-[140px]">
                         <span
                           className={`rounded-full px-2 py-1 text-xs font-semibold ${
                             job.status === "completed"
@@ -453,13 +470,13 @@ export default function AdminPanel() {
                           </p>
                         )}
                       </td>
-                      <td className="py-2 text-slate-600 text-xs">
+                      <td className="py-3 px-3 text-slate-600 text-xs whitespace-nowrap">
                         {getDatasetNames(job.dataset_ids)}
                       </td>
-                      <td className="py-2 text-slate-500 text-xs">
+                      <td className="py-3 px-3 text-slate-500 text-xs whitespace-nowrap">
                         {job.finished_at || job.started_at || "—"}
                       </td>
-                      <td className="py-2 space-x-2">
+                      <td className="py-3 px-3 space-x-2 whitespace-nowrap">
                         {(job.status === "running" || job.status === "pending") && (
                           <button
                             onClick={() => handleCancelJob(job.id)}
@@ -481,7 +498,7 @@ export default function AdminPanel() {
                   ))}
                 {jobs.filter(job => showCancelledJobs || job.status !== "cancelled").length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-4 text-center text-slate-500">
+                    <td colSpan={5} className="py-8 text-center text-slate-500">
                       {showCancelledJobs ? "No training jobs (including cancelled)." : "No active training jobs."}
                     </td>
                   </tr>
@@ -496,31 +513,35 @@ export default function AdminPanel() {
         className="grid gap-6 lg:grid-cols-2 opacity-0 animate-fade-in-up"
         style={{ animationDelay: "500ms" }}
       >
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Users</h2>
             <button
-              className="text-sm text-emerald-600 hover:underline"
+              className="text-sm text-emerald-600 hover:underline px-2 py-1"
               onClick={refreshUsers}
             >
               Refresh
             </button>
           </div>
-          <div className="max-h-72 overflow-auto">
+          <div className="max-h-72 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-500">
-                  <th className="py-2">Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                <tr className="text-left text-slate-500 bg-slate-50">
+                  <th className="py-2 px-3 whitespace-nowrap rounded-tl-lg">Email</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Role</th>
+                  <th className="py-2 px-3 whitespace-nowrap">Status</th>
+                  <th className="py-2 px-3 whitespace-nowrap rounded-tr-lg">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80">
-                    <td className="py-2">{user.email}</td>
-                    <td className="py-2">
+                {users.map((user, idx) => (
+                  <tr 
+                    key={user.id} 
+                    className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80 opacity-0 animate-fade-in-right"
+                    style={{ animationDelay: `${idx * 40}ms` }}
+                  >
+                    <td className="py-3 px-3 font-medium text-slate-700 whitespace-nowrap">{user.email}</td>
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <select
                         className="rounded border border-slate-300 px-2 py-1 text-sm"
                         value={user.role}
@@ -530,7 +551,7 @@ export default function AdminPanel() {
                         <option value="admin">Admin</option>
                       </select>
                     </td>
-                    <td className="py-2 text-xs">
+                    <td className="py-3 px-3 text-xs whitespace-nowrap">
                       {user.is_active ? (
                         <span className="rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
                           Active
@@ -541,7 +562,7 @@ export default function AdminPanel() {
                         </span>
                       )}
                     </td>
-                    <td className="py-2">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <button
                         className="text-xs text-red-600 hover:underline"
                         onClick={() => handleDeleteUser(user.id)}
@@ -553,7 +574,7 @@ export default function AdminPanel() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-slate-500">
+                    <td colSpan={4} className="py-8 text-center text-slate-500">
                       No users found.
                     </td>
                   </tr>
@@ -563,11 +584,11 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Plots & Predictions</h2>
             <button
-              className="text-sm text-emerald-600 hover:underline"
+              className="text-sm text-emerald-600 hover:underline px-2 py-1"
               onClick={() => {
                 refreshPlots();
                 refreshAll();
@@ -579,11 +600,12 @@ export default function AdminPanel() {
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-slate-100 p-3">
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Plots</h3>
-              <div className="max-h-48 overflow-auto space-y-2 text-sm">
-                {plots.map((plot) => (
+              <div className="max-h-48 overflow-y-auto space-y-2 text-sm pr-1">
+                {plots.map((plot, idx) => (
                   <div
                     key={plot.id}
-                    className="flex items-center justify-between rounded border border-slate-100 px-2 py-1 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm"
+                    className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm opacity-0 animate-fade-in-right"
+                    style={{ animationDelay: `${idx * 40}ms` }}
                   >
                     <div>
                       <p className="font-semibold text-slate-800">#{plot.id}</p>
@@ -604,11 +626,12 @@ export default function AdminPanel() {
             </div>
             <div className="rounded-xl border border-slate-100 p-3">
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Predictions</h3>
-              <div className="max-h-48 overflow-auto space-y-2 text-sm">
-                {predictions.map((prediction) => (
+              <div className="max-h-48 overflow-y-auto space-y-2 text-sm pr-1">
+                {predictions.map((prediction, idx) => (
                   <div
                     key={prediction.id}
-                    className="rounded border border-slate-100 px-2 py-1 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm"
+                    className="rounded-lg border border-slate-100 px-3 py-2 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm opacity-0 animate-fade-in-right"
+                    style={{ animationDelay: `${idx * 40}ms` }}
                   >
                     <p className="font-semibold text-slate-800">
                       Model {prediction.model_version}
