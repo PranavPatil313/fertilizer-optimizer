@@ -301,26 +301,26 @@ export default function AdminPanel() {
           animation: gradientShift 8s ease infinite;
         }
       `}</style>
-      <div className="max-w-6xl mx-auto w-full px-3 sm:px-6 lg:px-8 space-y-3 sm:space-y-6 pb-10 pt-0 sm:pt-4">
+      <div className="max-w-6xl mx-auto w-full px-2 sm:px-6 lg:px-8 space-y-2 sm:space-y-6 pb-10 pt-1 sm:pt-4 -mt-2 sm:mt-0">
 
       <div 
-        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-8 text-white shadow-xl opacity-0 animate-fade-in-up animate-gradient transition-all duration-500 hover:shadow-2xl"
+        className="relative overflow-hidden rounded-xl sm:rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-3 sm:p-8 text-white shadow-xl opacity-0 animate-fade-in-up animate-gradient transition-all duration-500 hover:shadow-2xl"
         style={{ animationDelay: "0ms" }}
       >
-        <div className="relative z-10 flex flex-row items-center sm:items-start justify-between gap-3 sm:gap-4">
+        <div className="relative z-10 flex flex-row items-center sm:items-start justify-between gap-2 sm:gap-4">
           <div>
             <p className="hidden sm:block text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] text-slate-300">Admin Control</p>
-            <h1 className="text-xl sm:text-3xl font-semibold">Operations Console</h1>
-            <p className="mt-0.5 sm:mt-2 text-[11px] sm:text-sm text-slate-300 max-w-2xl line-clamp-1 sm:line-clamp-none">
+            <h1 className="text-lg sm:text-3xl font-semibold">Operations Console</h1>
+            <p className="text-[10px] sm:text-sm text-slate-300 max-w-2xl line-clamp-1 sm:line-clamp-none">
               Manage datasets, trigger ML training jobs, oversee users, plots, and predictions.
             </p>
           </div>
           <button 
             onClick={handleTriggerReports}
-            className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur p-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white transition-all shadow-sm flex items-center gap-2 shrink-0 self-center sm:self-start"
+            className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur p-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-sm font-semibold text-white transition-all shadow-sm flex items-center gap-1.5 shrink-0 self-center sm:self-start"
             title="Send Weekly Reports"
           >
-            <span className="text-base sm:text-lg leading-none">📧</span> <span className="hidden sm:inline">Weekly Reports</span>
+            <span className="text-sm sm:text-lg leading-none">📧</span> <span className="hidden sm:inline">Weekly Reports</span>
           </button>
         </div>
         {/* Subtle decorative glow */}
@@ -333,7 +333,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-5">
         <StatCard label="Users" value={overview?.users} delay="100ms" />
         <StatCard label="Plots" value={overview?.plots} tone="indigo" delay="150ms" />
         <StatCard label="Predictions" value={overview?.predictions} tone="amber" delay="200ms" />
