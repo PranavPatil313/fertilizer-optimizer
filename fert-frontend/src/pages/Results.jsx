@@ -33,16 +33,17 @@ export default function Results() {
 
   if (!persistedResult) {
     return (
-      <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+      <div className="max-w-3xl mx-auto w-full bg-white p-8 sm:p-12 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 mt-10 lg:mt-16 text-center">
+        <div className="text-4xl mb-4">📑</div>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           No recommendation selected
         </h2>
-        <p className="text-gray-600">
+        <p className="text-slate-600">
           Run a recommendation or open one from your dashboard to review the
           production-grade analytics.
         </p>
         <button
-          className="mt-4 rounded-lg bg-green-700 px-4 py-2 text-white"
+          className="mt-6 rounded-full bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-white font-semibold shadow-sm transition"
           onClick={() => navigate("/dashboard")}
         >
           Go to dashboard
@@ -55,16 +56,17 @@ export default function Results() {
 
   if (!res) {
     return (
-      <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+      <div className="max-w-3xl mx-auto w-full bg-white p-8 sm:p-12 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 mt-10 lg:mt-16 text-center">
+        <div className="text-4xl mb-4">📑</div>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-2">
           No recommendation selected
         </h2>
-        <p className="text-gray-600">
+        <p className="text-slate-600">
           Run a recommendation or open one from your dashboard to review the
           production-grade analytics.
         </p>
         <button
-          className="mt-4 rounded-lg bg-green-700 px-4 py-2 text-white"
+          className="mt-6 rounded-full bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-white font-semibold shadow-sm transition"
           onClick={() => navigate("/dashboard")}
         >
           Go to dashboard
@@ -108,7 +110,7 @@ export default function Results() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto w-full space-y-6 sm:space-y-8 pb-10 pt-4 sm:pt-6">
       <style>{`
         @keyframes gradientShift {
           0% { background-position: 0% 50%; }
@@ -244,14 +246,6 @@ export default function Results() {
             title="Fertilizer Blend Optimizer (Real Market SKU Based)"
             blend={res.fertilizer_blend}
           />
-        </div>
-        <div className="mt-6">
-          <h4 className="text-sm uppercase tracking-wide text-gray-500 mb-2">
-            Raw server response
-          </h4>
-          <pre className="bg-gray-50 rounded-xl p-4 text-xs overflow-auto max-h-72">
-            {JSON.stringify(res, null, 2)}
-          </pre>
         </div>
       </div>
     </div>

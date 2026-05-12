@@ -112,7 +112,7 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl sm:rounded-3xl shadow-sm p-8 sm:p-12 text-center border border-slate-100 mt-10">
+      <div className="max-w-3xl mx-auto w-full bg-white rounded-2xl sm:rounded-3xl shadow-sm p-8 sm:p-12 text-center border border-slate-100 mt-10 lg:mt-16">
         <div className="text-4xl mb-4">🔒</div>
         <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 mb-3">
           Sign in to unlock analytics
@@ -125,7 +125,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-10 pb-10">
+    <div className="max-w-6xl mx-auto w-full space-y-6 sm:space-y-10 pb-10 pt-4 sm:pt-6">
       <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(20px); }
@@ -168,14 +168,6 @@ export default function Dashboard() {
             <p className="mt-4 text-sm sm:text-base text-emerald-50/90 leading-relaxed max-w-lg">
               Keep an eye on plots, predictions, and generated reports from this single view.
             </p>
-            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3">
-              <button
-                className="rounded-xl sm:rounded-full bg-white/10 backdrop-blur-sm px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-white/20 hover:-translate-y-0.5 border border-white/20 min-h-touch w-full sm:w-auto text-center"
-                onClick={() => window.open(`${API_URL}/docs`, "_blank")}
-              >
-                API Reference →
-              </button>
-            </div>
           </div>
         </div>
       </section>
