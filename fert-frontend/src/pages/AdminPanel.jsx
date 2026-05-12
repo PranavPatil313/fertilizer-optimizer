@@ -18,7 +18,7 @@ import {
   fetchAdminPredictions,
 } from "../api/api";
 
-function StatCard({ label, value, tone = "emerald" }) {
+function StatCard({ label, value, tone = "emerald", delay = "0ms" }) {
   const toneMap = {
     emerald: "text-emerald-600 bg-emerald-50",
     indigo: "text-indigo-600 bg-indigo-50",
@@ -26,7 +26,10 @@ function StatCard({ label, value, tone = "emerald" }) {
     slate: "text-slate-600 bg-slate-50",
   };
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div 
+      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm opacity-0 animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default"
+      style={{ animationDelay: delay }}
+    >
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className={`mt-2 text-3xl font-semibold ${toneMap[tone] || toneMap.emerald}`}>
         {value ?? "—"}
@@ -237,7 +240,20 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl bg-slate-900 p-6 text-white shadow-xl">
+      <style>{`
+        @keyframes fadeInUp {
+          0% { opacity: 0; transform: translateY(20px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
+
+      <div 
+        className="rounded-3xl bg-slate-900 p-6 text-white shadow-xl opacity-0 animate-fade-in-up transition-all duration-500 hover:shadow-2xl hover:scale-[1.01]"
+        style={{ animationDelay: "0ms" }}
+      >
         <p className="text-xs uppercase tracking-[0.3em] text-slate-300">Admin Control</p>
         <h1 className="mt-2 text-3xl font-semibold">Operations Console</h1>
         <p className="mt-2 text-sm text-slate-300">
@@ -252,18 +268,21 @@ export default function AdminPanel() {
       )}
 
       <div className="grid gap-4 md:grid-cols-5">
-        <StatCard label="Users" value={overview?.users} />
-        <StatCard label="Plots" value={overview?.plots} tone="indigo" />
-        <StatCard label="Predictions" value={overview?.predictions} tone="amber" />
-        <StatCard label="Datasets" value={overview?.datasets} tone="slate" />
-        <StatCard label="Training Jobs" value={overview?.training_jobs} tone="emerald" />
+        <StatCard label="Users" value={overview?.users} delay="100ms" />
+        <StatCard label="Plots" value={overview?.plots} tone="indigo" delay="150ms" />
+        <StatCard label="Predictions" value={overview?.predictions} tone="amber" delay="200ms" />
+        <StatCard label="Datasets" value={overview?.datasets} tone="slate" delay="250ms" />
+        <StatCard label="Training Jobs" value={overview?.training_jobs} tone="emerald" delay="300ms" />
       </div>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+      <section 
+        className="grid gap-6 lg:grid-cols-2 opacity-0 animate-fade-in-up"
+        style={{ animationDelay: "400ms" }}
+      >
+        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">Datasets</h2>
-            <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-emerald-400">
+            <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-md active:scale-95">
               {uploading ? "Uploading…" : "Upload CSV"}
               <input
                 type="file"
@@ -291,7 +310,7 @@ export default function AdminPanel() {
               </thead>
               <tbody>
                 {datasets.map((dataset) => (
-                  <tr key={dataset.id} className="border-t border-slate-100">
+                  <tr key={dataset.id} className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80">
                     <td className="py-2">
                       <input
                         type="checkbox"
@@ -345,7 +364,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold text-slate-900">Training Jobs</h2>
@@ -359,7 +378,7 @@ export default function AdminPanel() {
               )}
             </div>
             <button
-              className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-emerald-500 hover:-translate-y-0.5 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
               onClick={handleTrainingStart}
               disabled={selectedDatasets.length === 0}
             >
@@ -390,7 +409,7 @@ export default function AdminPanel() {
                 {jobs
                   .filter(job => showCancelledJobs || job.status !== "cancelled")
                   .map((job) => (
-                    <tr key={job.id} className="border-t border-slate-100">
+                    <tr key={job.id} className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80">
                       <td className="py-2 font-semibold text-slate-800">#{job.id}</td>
                       <td className="py-2">
                         <span
@@ -473,8 +492,11 @@ export default function AdminPanel() {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+      <section 
+        className="grid gap-6 lg:grid-cols-2 opacity-0 animate-fade-in-up"
+        style={{ animationDelay: "500ms" }}
+      >
+        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Users</h2>
             <button
@@ -496,7 +518,7 @@ export default function AdminPanel() {
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="border-t border-slate-100">
+                  <tr key={user.id} className="border-t border-slate-100 transition-colors duration-200 hover:bg-slate-50/80">
                     <td className="py-2">{user.email}</td>
                     <td className="py-2">
                       <select
@@ -541,7 +563,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Plots & Predictions</h2>
             <button
@@ -561,7 +583,7 @@ export default function AdminPanel() {
                 {plots.map((plot) => (
                   <div
                     key={plot.id}
-                    className="flex items-center justify-between rounded border border-slate-100 px-2 py-1"
+                    className="flex items-center justify-between rounded border border-slate-100 px-2 py-1 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm"
                   >
                     <div>
                       <p className="font-semibold text-slate-800">#{plot.id}</p>
@@ -586,7 +608,7 @@ export default function AdminPanel() {
                 {predictions.map((prediction) => (
                   <div
                     key={prediction.id}
-                    className="rounded border border-slate-100 px-2 py-1"
+                    className="rounded border border-slate-100 px-2 py-1 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm"
                   >
                     <p className="font-semibold text-slate-800">
                       Model {prediction.model_version}
