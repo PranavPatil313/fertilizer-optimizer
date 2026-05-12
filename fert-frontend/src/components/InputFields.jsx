@@ -1,4 +1,5 @@
 //src/components/InputFields.jsx
+import React from "react";
 
 export default function InputField({label, ...props}) {
   return (

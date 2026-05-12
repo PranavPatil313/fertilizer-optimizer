@@ -1,4 +1,5 @@
 // src/pages/Results.jsx
+import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart,
@@ -11,7 +12,6 @@ import {
 } from "recharts";
 import { downloadReport } from "../api/api";
 import useAuth from "../auth/useAuth";
-import { useMemo, useState } from "react";
 import { kgHaToKgAcre } from "../utils/unitConversion";
 
 function BaselineComparison({ res }) {

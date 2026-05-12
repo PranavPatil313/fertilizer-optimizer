@@ -2,9 +2,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import useAuth from "../auth/useAuth";
-import { API_URL, fetchPlots, fetchPredictions } from "../api/api";
+import { fetchPlots, fetchPredictions } from "../api/api";
 import { getWorkspaceVersion, subscribeWorkspaceUpdate } from "../utils/workspaceEvents";
-import { kgHaToKgAcre } from "../utils/unitConversion";
 
 const actions = [
   {
