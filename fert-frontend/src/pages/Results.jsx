@@ -166,7 +166,7 @@ export default function Results() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full space-y-6 sm:space-y-8 pb-10 pt-4 sm:pt-6">
+    <>
       <style>{`
         @keyframes gradientShift {
           0% { background-position: 0% 50%; }
@@ -174,6 +174,7 @@ export default function Results() {
           100% { background-position: 0% 50%; }
         }
       `}</style>
+      <div className="max-w-6xl mx-auto w-full px-2 sm:px-6 lg:px-8 space-y-3 sm:space-y-8 pb-10 pt-1 sm:pt-6 -mt-2 sm:mt-0">
       <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
@@ -338,6 +339,7 @@ export default function Results() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

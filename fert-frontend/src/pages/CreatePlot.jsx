@@ -380,7 +380,7 @@ export default function CreatePlot() {
   }, [debouncedPayload]);
 
   return (
-    <div className="max-w-6xl mx-auto w-full grid gap-6 lg:grid-cols-[1.5fr,1fr] pb-10 pt-4 sm:pt-6 items-start">
+    <div className="max-w-6xl mx-auto w-full px-2 sm:px-6 lg:px-8 grid gap-4 sm:gap-6 lg:grid-cols-[1.5fr,1fr] pb-10 pt-1 sm:pt-6 -mt-2 sm:mt-0 items-start">
       <div className="rounded-3xl border border-transparent bg-white/95 p-6 shadow-xl ring-1 ring-slate-100">
         <div className="flex items-center justify-between mb-4">
           <div>

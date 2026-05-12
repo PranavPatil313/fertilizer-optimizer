@@ -123,7 +123,7 @@ export default function Home() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto w-full space-y-6 sm:space-y-10 pb-10 pt-4 sm:pt-6">
+    <>
       <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(20px); }
@@ -144,6 +144,7 @@ export default function Home() {
           animation: float 7s ease-in-out infinite 2s;
         }
       `}</style>
+      <div className="max-w-6xl mx-auto w-full px-2 sm:px-6 lg:px-8 space-y-3 sm:space-y-10 pb-10 pt-1 sm:pt-6 -mt-2 sm:mt-0">
 
       <section className="relative overflow-hidden rounded-3xl sm:rounded-[2.5rem] bg-gradient-to-br from-emerald-800 via-emerald-600 to-teal-500 p-6 sm:p-12 text-white shadow-2xl opacity-0 animate-fade-in-up">
         {/* Decorative background shapes */}
@@ -276,6 +277,7 @@ export default function Home() {
         </div>
       </section>
     </div>
+    </>
   );
 }
 

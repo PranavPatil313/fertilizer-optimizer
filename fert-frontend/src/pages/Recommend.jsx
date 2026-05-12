@@ -330,7 +330,7 @@ export default function Recommend() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full space-y-4 sm:space-y-6 pb-10 pt-4 sm:pt-6">
+    <>
       <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(20px) scale(0.98); }
@@ -352,6 +352,7 @@ export default function Recommend() {
           animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+      <div className="max-w-6xl mx-auto w-full px-2 sm:px-6 lg:px-8 space-y-3 sm:space-y-6 pb-10 pt-1 sm:pt-6 -mt-2 sm:mt-0">
       <section className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-4 sm:p-6 opacity-0 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
         <div className="flex flex-col gap-3 sm:gap-4">
           <div>
@@ -585,6 +586,7 @@ export default function Recommend() {
         </>
       )}
     </div>
+    </>
   );
 }
 // src/pages/Recommend.jsx
