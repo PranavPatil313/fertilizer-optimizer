@@ -20,6 +20,7 @@ from ..recommendation import (
     make_product_blend,
 )
 from src.logging_config import setup_logging
+from src.services.llm import generate_agronomic_insights
 from src.auth.api_key_auth import api_key_auth
 
 
@@ -390,6 +391,12 @@ async def recommend(
             base_yield = preds.get("yield_kg_ha", 0.0)
             yf = float(weather_risk["yield_weather_factor"])
             preds["yield_kg_ha_weather_adjusted"] = base_yield * yf
+
+        # Generate dynamic LLM insights
+        llm_insights = await generate_agronomic_insights(inp, preds, weather_risk)
+        # Prepend LLM insights to existing rule-based insights for a richer output
+        existing_insights = preds.get("insights", [])
+        preds["insights"] = llm_insights + existing_insights
 
         # Build base recommendation
         rec = make_recommendation(preds, inp)
