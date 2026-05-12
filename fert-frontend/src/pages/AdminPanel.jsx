@@ -18,7 +18,7 @@ import {
   fetchAdminPredictions,
 } from "../api/api";
 
-function StatCard({ label, value, tone = "emerald", delay = "0ms" }) {
+function StatCard({ label, value, tone = "emerald", delay = "0ms", className = "" }) {
   const toneMap = {
     emerald: "text-emerald-600 bg-emerald-50",
     indigo: "text-indigo-600 bg-indigo-50",
@@ -27,7 +27,7 @@ function StatCard({ label, value, tone = "emerald", delay = "0ms" }) {
   };
   return (
     <div 
-      className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm opacity-0 animate-zoom-in transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default flex flex-col justify-center"
+      className={`rounded-2xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm opacity-0 animate-zoom-in transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 cursor-default flex flex-col justify-center ${className}`}
       style={{ animationDelay: delay }}
     >
       <p className="text-[10px] sm:text-xs uppercase tracking-wide text-slate-500">{label}</p>
@@ -330,19 +330,19 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
         <StatCard label="Users" value={overview?.users} delay="100ms" />
         <StatCard label="Plots" value={overview?.plots} tone="indigo" delay="150ms" />
         <StatCard label="Predictions" value={overview?.predictions} tone="amber" delay="200ms" />
         <StatCard label="Datasets" value={overview?.datasets} tone="slate" delay="250ms" />
-        <StatCard label="Jobs" value={overview?.training_jobs} tone="emerald" delay="300ms" />
+        <StatCard label="Jobs" value={overview?.training_jobs} tone="emerald" delay="300ms" className="col-span-2 md:col-span-1" />
       </div>
 
       <section 
         className="grid gap-5 sm:gap-6 lg:grid-cols-2 opacity-0 animate-fade-in-up"
         style={{ animationDelay: "400ms" }}
       >
-        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
+        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <h2 className="text-lg font-semibold text-slate-900">Datasets</h2>
             <label className="cursor-pointer rounded-full border border-slate-300 px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 transition-all duration-300 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-md active:scale-95 flex items-center justify-center gap-2">
@@ -368,7 +368,7 @@ export default function AdminPanel() {
           <p className="text-xs text-slate-500 mb-3">
             Upload CSV datasets (≤200 MB). Files auto-clean before training eligibility.
           </p>
-          <div className="max-h-80 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
+          <div className="max-h-60 sm:max-h-80 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="text-left text-slate-500 bg-slate-50">
@@ -439,7 +439,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
+        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-lg font-semibold text-slate-900">Training Jobs</h2>
@@ -469,7 +469,7 @@ export default function AdminPanel() {
           {trainingStatus && (
             <p className="text-xs text-emerald-600 mb-2">{trainingStatus}</p>
           )}
-          <div className="max-h-80 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
+          <div className="max-h-60 sm:max-h-80 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="text-left text-slate-500 bg-slate-50">
@@ -575,7 +575,7 @@ export default function AdminPanel() {
         className="grid gap-5 sm:gap-6 lg:grid-cols-2 opacity-0 animate-fade-in-up"
         style={{ animationDelay: "500ms" }}
       >
-        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg">
+        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Users</h2>
             <button
@@ -585,7 +585,7 @@ export default function AdminPanel() {
               Refresh
             </button>
           </div>
-          <div className="max-h-72 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
+          <div className="max-h-60 sm:max-h-72 overflow-x-auto overflow-y-auto rounded-xl border border-slate-50">
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="text-left text-slate-500 bg-slate-50">
@@ -646,7 +646,7 @@ export default function AdminPanel() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col">
+        <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm border border-slate-200 transition-all duration-500 hover:shadow-lg flex flex-col min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="text-lg font-semibold text-slate-900">Plots & Predictions</h2>
             <button
