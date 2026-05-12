@@ -15,6 +15,31 @@ const workflow = [
   { step: "Report", detail: "Generate PDF summary and share recommendations with your team." },
 ];
 
+function DataCards({ data }) {
+  if (!data) return null;
+  if (typeof data !== "object") {
+    return <p className="mt-2 text-sm text-slate-700 bg-slate-50 border border-slate-100 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm">{String(data)}</p>;
+  }
+  return (
+    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {Object.entries(data).map(([key, val]) => {
+        if (val === null || val === undefined) return null;
+        if (typeof val === "object" && !Array.isArray(val)) return null; // Skip deeply nested objects for flat card views
+        return (
+          <div key={key} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+            <h4 className="text-[10px] sm:text-[11px] uppercase tracking-wider text-emerald-600 font-bold mb-1">
+              {key.replace(/_/g, " ")}
+            </h4>
+            <p className="text-sm font-medium text-slate-800">
+              {Array.isArray(val) ? val.join(", ") : String(val)}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Recommend() {
   const navigate = useNavigate();
   const [input, setInput] = useState(null);
@@ -128,7 +153,23 @@ export default function Recommend() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <section className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-4 sm:p-6">
+      <style>{`
+        @keyframes fadeInUp {
+          0% { opacity: 0; transform: translateY(20px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes zoomIn {
+          0% { opacity: 0; transform: scale(0.95); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-zoom-in {
+          animation: zoomIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
+      <section className="rounded-2xl sm:rounded-3xl bg-white shadow-sm border border-slate-100 p-4 sm:p-6 opacity-0 animate-fade-in-up" style={{ animationDelay: "0ms" }}>
         <div className="flex flex-col gap-3 sm:gap-4">
           <div>
             <p className="text-[10px] sm:text-xs uppercase tracking-[0.3em] text-emerald-600">Recommendation</p>
@@ -141,13 +182,13 @@ export default function Recommend() {
             <button
               onClick={runRecommend}
               disabled={loading}
-              className="w-full sm:w-auto rounded-lg sm:rounded-full bg-emerald-600 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:opacity-70 transition min-h-touch"
+              className="w-full sm:w-auto rounded-lg sm:rounded-full bg-emerald-600 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-white shadow transition-all hover:bg-emerald-500 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow min-h-touch"
             >
               {loading ? "Running…" : "Run recommendation"}
             </button>
             <button
               onClick={previewPdf}
-              className="w-full sm:w-auto rounded-lg sm:rounded-full border border-slate-200 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 transition min-h-touch"
+              className="w-full sm:w-auto rounded-lg sm:rounded-full border border-slate-200 px-4 sm:px-6 py-3 sm:py-3 text-sm font-semibold text-slate-700 transition-all hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 hover:-translate-y-0.5 hover:shadow-md min-h-touch"
             >
               Preview PDF
             </button>
@@ -160,8 +201,12 @@ export default function Recommend() {
         )}
 
         <div className="mt-6 grid gap-4 md:grid-cols-4">
-          {workflow.map(({ step, detail }) => (
-            <div key={step} className="rounded-2xl border border-slate-100 p-4 text-sm">
+          {workflow.map(({ step, detail }, idx) => (
+            <div 
+              key={step} 
+              className="rounded-2xl border border-slate-100 p-4 text-sm opacity-0 animate-fade-in-up transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+              style={{ animationDelay: `${(idx + 1) * 100}ms` }}
+            >
               <p className="text-xs uppercase tracking-wide text-slate-400">{step}</p>
               <p className="mt-1 font-semibold text-slate-900">{detail}</p>
             </div>
@@ -171,10 +216,17 @@ export default function Recommend() {
 
       {response && (
         <>
-          <section className="rounded-3xl bg-white shadow-sm border border-slate-100 p-6">
+          <section 
+            className="rounded-3xl bg-white shadow-sm border border-slate-100 p-6 opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "100ms" }}
+          >
             <div className="grid gap-4 md:grid-cols-4">
-              {primaryStats.map((stat) => (
-                <div key={stat.label} className="rounded-2xl border border-slate-100 p-4">
+              {primaryStats.map((stat, idx) => (
+                <div 
+                  key={stat.label} 
+                  className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-zoom-in transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-default"
+                  style={{ animationDelay: `${(idx + 2) * 100}ms` }}
+                >
                   <p className="text-xs uppercase tracking-wide text-slate-500">{stat.label}</p>
                   <p className="text-3xl font-semibold text-slate-900">
                     {stat.value?.toFixed(1) ?? "—"}
@@ -185,7 +237,10 @@ export default function Recommend() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-100 p-4">
+              <div 
+                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md"
+                style={{ animationDelay: "300ms" }}
+              >
                 <p className="text-sm font-semibold text-slate-900">NPK profile</p>
                 <NpkChart
                   N={response.predictions?.N_kg_ha}
@@ -193,7 +248,10 @@ export default function Recommend() {
                   K={response.predictions?.K_kg_ha}
                 />
               </div>
-              <div className="rounded-2xl border border-slate-100 p-4">
+              <div 
+                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md"
+                style={{ animationDelay: "400ms" }}
+              >
                 <p className="text-sm font-semibold text-slate-900">Yield projection</p>
                 <YieldChart
                   yieldKg={
@@ -202,14 +260,20 @@ export default function Recommend() {
                   }
                 />
               </div>
-              <div className="rounded-2xl border border-slate-100 p-4">
+              <div 
+                className="rounded-2xl border border-slate-100 p-4 opacity-0 animate-fade-in-up transition-all hover:shadow-md"
+                style={{ animationDelay: "500ms" }}
+              >
                 <p className="text-sm font-semibold text-slate-900">Carbon impact</p>
                 <CarbonChart co2={response.carbon_kg_ha} />
               </div>
             </div>
           </section>
 
-          <section className="rounded-3xl bg-white shadow-sm border border-slate-100 p-6 space-y-6">
+          <section 
+            className="rounded-3xl bg-white shadow-sm border border-slate-100 p-6 space-y-6 opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "400ms" }}
+          >
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900">Fertilizer recommendation</h3>
@@ -264,9 +328,6 @@ export default function Recommend() {
                   Fertilizer blend not available for this recommendation.
                 </p>
               )}
-              <pre className="mt-3 max-h-56 overflow-auto rounded-2xl bg-slate-50 p-4 text-xs text-slate-700">
-                {JSON.stringify(response.fertilizer_blend, null, 2)}
-              </pre>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Weather impact</h3>
