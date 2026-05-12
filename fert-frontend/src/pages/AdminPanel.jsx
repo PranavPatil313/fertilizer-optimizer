@@ -301,7 +301,7 @@ export default function AdminPanel() {
           animation: gradientShift 8s ease infinite;
         }
       `}</style>
-      <div className="max-w-6xl mx-auto w-full px-3 sm:px-6 lg:px-8 space-y-4 sm:space-y-8 pb-10 pt-3 sm:pt-6">
+      <div className="max-w-6xl mx-auto w-full px-3 sm:px-6 lg:px-8 space-y-3 sm:space-y-6 pb-10 pt-0 sm:pt-4">
 
       <div 
         className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-8 text-white shadow-xl opacity-0 animate-fade-in-up animate-gradient transition-all duration-500 hover:shadow-2xl"
