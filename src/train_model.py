@@ -175,8 +175,8 @@ def build_preprocessor(df):
 def build_model():
     # base learners
     cat = CatBoostRegressor(verbose=0, random_state=RND, iterations=250, depth=6, learning_rate=0.05)
-    xgb_model = xgb.XGBRegressor(n_estimators=150, max_depth=6, learning_rate=0.05, random_state=RND, verbosity=0, n_jobs=2)
-    rf  = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=RND, n_jobs=2)
+    xgb_model = xgb.XGBRegressor(n_estimators=150, max_depth=6, learning_rate=0.05, random_state=RND, verbosity=0, n_jobs=1)
+    rf  = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=RND, n_jobs=1)
 
     estimators = [
         ("catboost", cat),
@@ -185,7 +185,7 @@ def build_model():
     ]
 
     # meta learner
-    stack = StackingRegressor(estimators=estimators, final_estimator=LinearRegression(), n_jobs=2, passthrough=False)
+    stack = StackingRegressor(estimators=estimators, final_estimator=LinearRegression(), cv=3, n_jobs=1, passthrough=False)
     return stack
 
 # ------------- 4) Train separate models for each target using same preprocessor -------------
