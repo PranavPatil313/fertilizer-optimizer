@@ -16,6 +16,11 @@ import {
   fetchAdminPlots,
   deleteAdminPlot,
   fetchAdminPredictions,
+  fetchAdminSettings,
+  saveAdminSettings,
+  clearAdminCache,
+  fetchSystemHealth,
+  downloadDatabaseBackup,
 } from "../api/api";
 
 function StatCard({ label, value, tone = "emerald", delay = "0ms", className = "" }) {
@@ -51,6 +56,10 @@ export default function AdminPanel() {
   const [trainingStatus, setTrainingStatus] = useState("");
   const [error, setError] = useState("");
   const [showCancelledJobs, setShowCancelledJobs] = useState(false);
+  const [aiSettings, setAiSettings] = useState({ chat_prompt: "" });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [health, setHealth] = useState(null);
+  const [downloadingBackup, setDownloadingBackup] = useState(false);
 
   useEffect(() => {
     refreshAll();
@@ -66,6 +75,8 @@ export default function AdminPanel() {
         fetchTrainingJobs(),
         fetchAdminPlots(),
         fetchAdminPredictions(),
+        fetchAdminSettings(),
+        fetchSystemHealth(),
       ]);
       
       if (results[0].status === "fulfilled") setOverview(results[0].value);
@@ -74,6 +85,8 @@ export default function AdminPanel() {
       if (results[3].status === "fulfilled") setJobs(results[3].value);
       if (results[4].status === "fulfilled") setPlots(results[4].value);
       if (results[5].status === "fulfilled") setPredictions(results[5].value);
+      if (results[6].status === "fulfilled") setAiSettings(results[6].value);
+      if (results[7].status === "fulfilled") setHealth(results[7].value);
 
       const failures = results.filter((r) => r.status === "rejected");
       if (failures.length > 0) {
@@ -248,6 +261,44 @@ export default function AdminPanel() {
     }
   }
 
+  async function handleSaveSettings() {
+    setSavingSettings(true);
+    try {
+      await saveAdminSettings(aiSettings);
+      alert("AI Configuration saved successfully! The Chatbot will now use these instructions.");
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Failed to save settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleClearCache() {
+    try {
+      await clearAdminCache();
+      alert("Server caches (ML Models & Weather) cleared successfully. The next request will hot-load the latest models from disk.");
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Failed to clear cache");
+    }
+  }
+
+  async function handleDownloadBackup() {
+    setDownloadingBackup(true);
+    try {
+      const blob = await downloadDatabaseBackup();
+      const url = URL.createObjectURL(new Blob([blob]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fertilizer_backup_${new Date().toISOString().split('T')[0]}.sqlite`;
+      a.click();
+      document.body.appendChild(a);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Backup not supported for current database configuration.");
+    } finally {
+      setDownloadingBackup(false);
+    }
+  }
+
   const processedReadyCount = useMemo(
     () => datasets.filter((ds) => ds.status === "processed" && ds.processed_path).length,
     [datasets]
@@ -266,6 +317,11 @@ export default function AdminPanel() {
     const display = names.length > 2 ? `${names[0]}, ${names[1]}... (+${count - 2})` : names.join(", ");
     return `${count} dataset${count !== 1 ? "s" : ""}: ${display}`;
   };
+
+  const realFeedbackCount = useMemo(
+    () => predictions.filter(p => p.result?.feedback?.actual_yield_kg_ha).length, 
+    [predictions]
+  );
 
   return (
     <>
@@ -322,7 +378,32 @@ export default function AdminPanel() {
           >
             <span className="text-sm sm:text-lg leading-none">📧</span> <span className="hidden sm:inline">Weekly Reports</span>
           </button>
-        </div>
+          <button 
+            onClick={handleClearCache}
+            className="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur p-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-sm font-semibold text-white transition-all shadow-sm flex items-center gap-1.5 shrink-0 self-center sm:self-start ml-2"
+            title="Clear ML & API Cache"
+          >
+            <span className="text-sm sm:text-lg leading-none">🧹</span> <span className="hidden sm:inline">Clear Caches</span>
+          </button>
+          </div>
+          {health && (
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-5 relative z-10 opacity-0 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+              {Object.entries(health).map(([key, status]) => (
+                <div key={key} className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold bg-white/10 backdrop-blur px-3 py-1.5 rounded-full border border-white/10 shadow-sm">
+                  <span className={`h-2 w-2 rounded-full ${status.includes('online') || status.includes('loaded') ? 'bg-emerald-400 animate-pulse' : status.includes('disk') ? 'bg-amber-400' : 'bg-red-400'}`}></span>
+                  <span className="text-slate-300 uppercase tracking-widest">{key.replace('_', ' ')}:</span>
+                  <span className="text-white capitalize tracking-wide">{status}</span>
+                </div>
+              ))}
+              <button 
+                onClick={handleDownloadBackup}
+                disabled={downloadingBackup}
+                className="ml-auto text-[10px] sm:text-[11px] uppercase tracking-widest font-bold text-emerald-300 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-1"
+              >
+                {downloadingBackup ? "Preparing..." : "💾 Download DB Backup"}
+              </button>
+            </div>
+          )}
         {/* Subtle decorative glow */}
         <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
       </div>
@@ -333,12 +414,13 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-6">
         <StatCard label="Users" value={overview?.users} delay="100ms" />
         <StatCard label="Plots" value={overview?.plots} tone="indigo" delay="150ms" />
         <StatCard label="Predictions" value={overview?.predictions} tone="amber" delay="200ms" />
+        <StatCard label="Harvest Logs" value={realFeedbackCount} tone="emerald" delay="225ms" title="Used to fine-tune ML models" />
         <StatCard label="Datasets" value={overview?.datasets} tone="slate" delay="250ms" />
-        <StatCard label="Jobs" value={overview?.training_jobs} tone="emerald" delay="300ms" className="col-span-2 md:col-span-1" />
+        <StatCard label="Jobs" value={overview?.training_jobs} tone="emerald" delay="300ms" />
       </div>
 
       <section 
@@ -713,6 +795,36 @@ export default function AdminPanel() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section 
+        className="grid gap-5 sm:gap-6 lg:grid-cols-1 opacity-0 animate-fade-in-up"
+        style={{ animationDelay: "600ms" }}
+      >
+        <div className="rounded-[1.5rem] bg-white p-4 sm:p-6 shadow-sm border border-slate-100 transition-all duration-500 hover:shadow-md flex flex-col min-w-0 ring-1 ring-slate-900/5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <h2 className="text-lg sm:text-xl font-semibold text-slate-900">AI Chatbot Configuration</h2>
+            <button
+              className="rounded-full bg-emerald-600 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-white transition-all duration-300 hover:bg-emerald-500 hover:shadow-md active:scale-95 disabled:opacity-50"
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+            >
+              {savingSettings ? "Saving..." : "Save Configuration"}
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Customize the system instruction prompt used by the Gemini AI Agronomist Chatbot platform-wide. 
+          </p>
+          <div className="flex flex-col">
+            <label className="text-sm font-semibold text-slate-700 mb-2">Chatbot System Prompt</label>
+            <textarea
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm focus:border-emerald-500 focus:outline-none min-h-[120px]"
+              value={aiSettings.chat_prompt}
+              onChange={(e) => setAiSettings({ ...aiSettings, chat_prompt: e.target.value })}
+              placeholder="You are a helpful, expert agronomist AI assistant..."
+            />
           </div>
         </div>
       </section>

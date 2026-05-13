@@ -1,10 +1,12 @@
 // src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   API_URL,
   fetchPlots,
   fetchPredictions,
   deletePlot,
+  analyzeCropImage,
 } from "../api/api";
 import useAuth from "../auth/useAuth";
 import { getWorkspaceVersion, subscribeWorkspaceUpdate } from "../utils/workspaceEvents";
@@ -12,6 +14,7 @@ import { kgHaToKgAcre, kgAcreToKgHa } from "../utils/unitConversion";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import ChatbotWidget from "../components/ChatbotWidget";
 
 const REGION_COORDS = {
   "Kolhapur": [16.7050, 74.2433],
@@ -49,7 +52,23 @@ export default function Dashboard() {
   const [activeMetric, setActiveMetric] = useState("Yield");
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+
+  // Vision Analyzer States
+  const [visionModalOpen, setVisionModalOpen] = useState(false);
+  const [visionFile, setVisionFile] = useState(null);
+  const [visionPlotId, setVisionPlotId] = useState("");
+  const [visionResult, setVisionResult] = useState("");
+  const [visionLoading, setVisionLoading] = useState(false);
+
+  // Compare Predictions States
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [comparePred1, setComparePred1] = useState("");
+  const [comparePred2, setComparePred2] = useState("");
+
+  const p1 = comparePred1 ? predictions.find(p => String(p.id) === comparePred1) : null;
+  const p2 = comparePred2 ? predictions.find(p => String(p.id) === comparePred2) : null;
 
   // Listen for token expiration events
   useEffect(() => {
@@ -67,6 +86,14 @@ export default function Dashboard() {
       window.removeEventListener("auth:token-expired", handleTokenExpired);
     };
   }, [logout]);
+
+  // Sync URL search params with local state when navigating from Navbar
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q !== null && q !== searchTerm) {
+      setSearchTerm(q);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -217,6 +244,28 @@ export default function Dashboard() {
     e.target.value = '';
   }
 
+  async function handleVisionSubmit(e) {
+    e.preventDefault();
+    if (!visionFile) return;
+    setVisionLoading(true);
+    setVisionResult("");
+    
+    try {
+      let plotData = {};
+      if (visionPlotId) {
+        const p = plots.find(p => String(p.id) === visionPlotId);
+        if (p) plotData = p.data;
+      }
+      const res = await analyzeCropImage(visionFile, plotData);
+      setVisionResult(res.analysis);
+    } catch (err) {
+      console.error("Vision API Error", err);
+      setVisionResult("Failed to analyze image. Please try again.");
+    } finally {
+      setVisionLoading(false);
+    }
+  }
+
   const latestPrediction = useMemo(
     () => predictions?.[0] ?? null,
     [predictions]
@@ -328,6 +377,14 @@ export default function Dashboard() {
             <p className="mt-4 text-sm sm:text-base text-emerald-50/90 leading-relaxed max-w-lg">
               Keep an eye on plots, predictions, and generated reports from this single view.
             </p>
+          </div>
+          <div className="mt-4 lg:mt-0 flex shrink-0">
+            <button 
+              onClick={() => setVisionModalOpen(true)}
+              className="rounded-full bg-white text-emerald-800 px-5 py-2.5 font-bold shadow-lg hover:bg-emerald-50 hover:scale-105 transition-all flex items-center gap-2"
+            >
+              <span className="text-xl">📸</span> Crop Disease Scanner
+            </button>
           </div>
         </div>
       </section>
@@ -570,9 +627,18 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <span className="text-xl">⚡</span> Latest predictions
             </h3>
-            {predictions.length > 0 && (
-              <button
-                onClick={() => {
+            <div className="flex gap-2">
+              {predictions.length > 1 && (
+                <button
+                  onClick={() => setCompareModalOpen(true)}
+                  className="text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+                >
+                  ⚖️ Compare
+                </button>
+              )}
+              {predictions.length > 0 && (
+                <button
+                  onClick={() => {
                   const rows = [["Date", "Plot ID", "Crop", "Yield Predicted (kg/acre)", "Actual Yield (kg/acre)", "Carbon (kg CO2e/acre)", "N (kg/acre)", "P (kg/acre)", "K (kg/acre)"]];
                   predictions.forEach(p => {
                     const plot = plots.find(pl => pl.id === p.plot_id);
@@ -599,7 +665,8 @@ export default function Dashboard() {
               >
                 Export CSV
               </button>
-            )}
+              )}
+            </div>
           </div>
           {status.loading ? (
             <div className="flex-1 flex items-center justify-center p-6"><p className="text-sm text-slate-500 animate-pulse">Loading predictions…</p></div>
@@ -689,6 +756,198 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+
+    {/* Vision Analyzer Modal */}
+    {visionModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative animate-fade-in-up">
+          <button 
+            onClick={() => setVisionModalOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-2xl">📸</span>
+            <h3 className="text-xl font-semibold text-slate-900">AI Crop Scanner</h3>
+          </div>
+          
+          <form onSubmit={handleVisionSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Select Plot Context (Optional)</label>
+              <select 
+                value={visionPlotId} 
+                onChange={(e) => setVisionPlotId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="">No specific plot</option>
+                {plots.map(p => (
+                  <option key={p.id} value={p.id}>{p.name || p.data?.crop_type || `Plot #${p.id}`}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-500 mt-1">Providing plot data gives the AI soil pH and nutrient context for better diagnosis.</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Upload Crop Image</label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={(e) => setVisionFile(e.target.files[0])}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={!visionFile || visionLoading}
+              className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:opacity-50 transition"
+            >
+              {visionLoading ? "Analyzing Image..." : "Analyze Image"}
+            </button>
+          </form>
+
+          {visionLoading && (
+            <div className="mt-6 flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl">
+              <svg className="animate-spin h-6 w-6 text-emerald-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <p className="text-sm text-slate-600 font-medium">Gemini is analyzing your crop...</p>
+            </div>
+          )}
+
+          {visionResult && !visionLoading && (
+            <div className="mt-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl max-h-48 overflow-y-auto custom-scrollbar">
+              <h4 className="text-sm font-semibold text-emerald-900 mb-2">Diagnosis</h4>
+              <div className="text-sm text-slate-700 space-y-2">
+                {visionResult.split('\n').map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Compare Predictions Modal */}
+    {compareModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl relative animate-fade-in-up">
+          <button 
+            onClick={() => setCompareModalOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-2xl">⚖️</span>
+            <h3 className="text-xl font-semibold text-slate-900">Compare Predictions</h3>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Prediction 1</label>
+              <select 
+                value={comparePred1} 
+                onChange={(e) => setComparePred1(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select prediction...</option>
+                {predictions.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {new Date(p.created_at).toLocaleDateString()} - Plot #{p.plot_id} ({plotLookup.get(p.plot_id)?.data?.crop_type || "Unknown"})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Prediction 2</label>
+              <select 
+                value={comparePred2} 
+                onChange={(e) => setComparePred2(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select prediction...</option>
+                {predictions.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {new Date(p.created_at).toLocaleDateString()} - Plot #{p.plot_id} ({plotLookup.get(p.plot_id)?.data?.crop_type || "Unknown"})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {p1 && p2 && (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="px-4 py-3">Metric</th>
+                    <th className="px-4 py-3 border-l border-slate-200">Prediction 1</th>
+                    <th className="px-4 py-3 border-l border-slate-200">Prediction 2</th>
+                    <th className="px-4 py-3 border-l border-slate-200">Difference (P2 - P1)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-slate-700">Crop</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{plotLookup.get(p1.plot_id)?.data?.crop_type || "—"}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{plotLookup.get(p2.plot_id)?.data?.crop_type || "—"}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">—</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-slate-700">Yield (kg/acre)</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p1.result?.predictions?.yield_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p2.result?.predictions?.yield_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200 font-semibold text-blue-600">
+                      {((kgHaToKgAcre(p2.result?.predictions?.yield_kg_ha || 0)) - (kgHaToKgAcre(p1.result?.predictions?.yield_kg_ha || 0))).toFixed(1)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-slate-700">Carbon (kg CO₂/acre)</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p1.result?.carbon_kg_ha || p1.result?.carbon || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p2.result?.carbon_kg_ha || p2.result?.carbon || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200 font-semibold text-blue-600">
+                      {((kgHaToKgAcre(p2.result?.carbon_kg_ha || p2.result?.carbon || 0)) - (kgHaToKgAcre(p1.result?.carbon_kg_ha || p1.result?.carbon || 0))).toFixed(1)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-slate-700">Nitrogen (kg/acre)</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p1.result?.predictions?.N_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p2.result?.predictions?.N_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200 font-semibold text-blue-600">
+                      {((kgHaToKgAcre(p2.result?.predictions?.N_kg_ha || 0)) - (kgHaToKgAcre(p1.result?.predictions?.N_kg_ha || 0))).toFixed(1)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-slate-700">Phosphorus (kg/acre)</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p1.result?.predictions?.P_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p2.result?.predictions?.P_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200 font-semibold text-blue-600">
+                      {((kgHaToKgAcre(p2.result?.predictions?.P_kg_ha || 0)) - (kgHaToKgAcre(p1.result?.predictions?.P_kg_ha || 0))).toFixed(1)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium text-slate-700">Potassium (kg/acre)</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p1.result?.predictions?.K_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200">{kgHaToKgAcre(p2.result?.predictions?.K_kg_ha || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 border-l border-slate-200 font-semibold text-blue-600">
+                      {((kgHaToKgAcre(p2.result?.predictions?.K_kg_ha || 0)) - (kgHaToKgAcre(p1.result?.predictions?.K_kg_ha || 0))).toFixed(1)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    <ChatbotWidget />
     </>
   );
 }

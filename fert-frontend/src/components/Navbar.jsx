@@ -1,5 +1,5 @@
 // src/components/Navbar.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import useAuth from "../auth/useAuth";
 
@@ -15,11 +15,65 @@ export default function Navbar() {
   const navigate = useNavigate();
   const isAdmin = (user?.role || "").toLowerCase() === "admin";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
+  useEffect(() => {
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    }
+    
+    // Initialize PWA Service Worker for Offline Capabilities
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('Service Worker registration failed:', err);
+      });
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.theme = 'light';
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.theme = 'dark';
+      setIsDark(true);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/dashboard?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+      setMobileMenuOpen(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      {/* Global Dark Mode CSS Overrides */}
+      <style>{`
+        html.dark body { background-color: #0f172a; color: #f8fafc; }
+        html.dark .bg-white { background-color: #1e293b !important; }
+        html.dark .text-slate-900 { color: #f8fafc !important; }
+        html.dark .text-slate-800 { color: #f1f5f9 !important; }
+        html.dark .text-slate-700 { color: #e2e8f0 !important; }
+        html.dark .text-slate-600 { color: #cbd5e1 !important; }
+        html.dark .text-slate-500 { color: #94a3b8 !important; }
+        html.dark .border-slate-100 { border-color: #334155 !important; }
+        html.dark .border-slate-200 { border-color: #475569 !important; }
+        html.dark .bg-slate-50 { background-color: #0f172a !important; }
+        html.dark .bg-slate-100 { background-color: #1e293b !important; }
+        html.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5) !important; }
+        html.dark input, html.dark select, html.dark textarea { background-color: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+        html.dark header.bg-white\\/90 { background-color: rgba(30, 41, 59, 0.9) !important; }
+      `}</style>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:py-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 font-semibold text-slate-900 flex-shrink-0">
@@ -85,6 +139,15 @@ export default function Navbar() {
 
         {/* Desktop/Tablet User Section */}
         <div className="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0">
+          <form onSubmit={handleSearch} className="relative hidden lg:block mr-2">
+            <input
+              type="text"
+              placeholder="Search globally..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-40 xl:w-48 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-sm text-slate-700 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            />
+          </form>
           {user ? (
             <>
               <div className="text-right">
@@ -124,6 +187,13 @@ export default function Navbar() {
               </Link>
             </>
           )}
+          <button
+            onClick={toggleTheme}
+            className="ml-2 rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition flex items-center justify-center min-h-touch min-w-touch"
+            aria-label="Toggle Dark Mode"
+          >
+            <span className="text-lg leading-none">{isDark ? "☀️" : "🌙"}</span>
+          </button>
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -211,6 +281,15 @@ export default function Navbar() {
 
           {/* Mobile User Section */}
           <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+            <form onSubmit={handleSearch} className="relative mb-3">
+              <input
+                type="text"
+                placeholder="Search globally..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:bg-white focus:outline-none"
+              />
+            </form>
             {user ? (
               <>
                 <div className="text-sm mb-3 pb-3 border-b border-slate-100">
@@ -251,6 +330,12 @@ export default function Navbar() {
                 </Link>
               </>
             )}
+            <button
+              onClick={toggleTheme}
+              className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition flex justify-center items-center gap-2"
+            >
+              {isDark ? "☀️ Switch to Light Mode" : "🌙 Switch to Dark Mode"}
+            </button>
           </div>
         </div>
       </div>

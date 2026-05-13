@@ -188,6 +188,54 @@ def build_model():
     stack = StackingRegressor(estimators=estimators, final_estimator=LinearRegression(), cv=3, n_jobs=1, passthrough=False)
     return stack
 
+# ------------- 3.5) Fetch Real Harvest Feedback from DB -------------
+def fetch_real_harvest_data():
+    try:
+        with SyncSession() as session:
+            # Safely extract JSON fields across both SQLite and Postgres
+            result = session.execute(text(
+                "SELECT p.data, pr.result FROM predictions pr JOIN plots p ON pr.plot_id = p.id"
+            )).fetchall()
+
+            rows = []
+            for plot_data_str, pred_result_str in result:
+                try:
+                    plot_data = json.loads(plot_data_str) if isinstance(plot_data_str, str) else plot_data_str
+                    pred_result = json.loads(pred_result_str) if isinstance(pred_result_str, str) else pred_result_str
+
+                    # Only include predictions that have an actual logged harvest yield
+                    if pred_result and "feedback" in pred_result and "actual_yield_kg_ha" in pred_result["feedback"]:
+                        actual_yield = float(pred_result["feedback"]["actual_yield_kg_ha"])
+                        ml_preds = pred_result.get("predictions", pred_result.get("preds", {}))
+
+                        row = {
+                            "crop_type": plot_data.get("crop_type", "Unknown").lower(),
+                            "soil_type": plot_data.get("soil_type", "Unknown").lower(),
+                            "region": plot_data.get("region", "Unknown").lower(),
+                            "avg_temp": float(plot_data.get("avg_temp", 25.0)),
+                            "rainfall_mm": float(plot_data.get("rainfall_mm", 800.0)),
+                            "crop_duration_days": float(plot_data.get("crop_duration_days", 120.0)),
+                            "soil_N": float(plot_data.get("soil_N", 0.0)),
+                            "soil_P": float(plot_data.get("soil_P", 0.0)),
+                            "soil_K": float(plot_data.get("soil_K", 0.0)),
+                            "pH": float(plot_data.get("pH", 6.5)),
+                            "organic_matter_pct": float(plot_data.get("organic_matter_pct", 1.5)),
+                            "irrigation_type": plot_data.get("irrigation_type", "Unknown").lower(),
+                            "area_acre": float(plot_data.get("area_acre", 2.0)),
+                            # The NPK features are what we actually recommended
+                            "N_kg_ha": float(ml_preds.get("N_kg_ha", 0)),
+                            "P_kg_ha": float(ml_preds.get("P_kg_ha", 0)),
+                            "K_kg_ha": float(ml_preds.get("K_kg_ha", 0)),
+                            "yield_kg_ha": actual_yield
+                        }
+                        rows.append(row)
+                except Exception:
+                    continue
+            return pd.DataFrame(rows)
+    except Exception as e:
+        print(f"Error fetching real data: {e}")
+        return pd.DataFrame()
+
 # ------------- 4) Train separate models for each target using same preprocessor -------------
 def train_and_save(artifact_dir="artifact", n_samples=5000, job_id=None):
     def _log(msg):
@@ -195,7 +243,18 @@ def train_and_save(artifact_dir="artifact", n_samples=5000, job_id=None):
         update_db_progress(job_id, msg)
 
     _log("PROGRESS: 5%\nGenerating synthetic dataset...")
-    df = generate_synthetic_dataset(n=n_samples)
+    df_synthetic = generate_synthetic_dataset(n=n_samples)
+
+    _log("PROGRESS: 10%\nScanning database for real Harvest Feedback logs...")
+    df_real = fetch_real_harvest_data()
+
+    if not df_real.empty:
+        _log(f"PROGRESS: 12%\nIncorporating {len(df_real)} real harvest records into training data! (Weighted 5x)")
+        # Duplicate real data to give it higher importance during training
+        df_real_weighted = pd.concat([df_real] * 5, ignore_index=True)
+        df = pd.concat([df_synthetic, df_real_weighted], ignore_index=True)
+    else:
+        df = df_synthetic
 
     # features and targets
     FEATURES = ["crop_type","soil_type","region","avg_temp","rainfall_mm","crop_duration_days",

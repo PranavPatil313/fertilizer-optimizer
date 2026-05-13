@@ -31,17 +31,25 @@ def get_async_database_url():
 
 DATABASE_URL = get_async_database_url()
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_recycle=3600,   # Recycle connections after 1 hour
-    connect_args={
-        "timeout": 10,  # 10 second connection timeout for asyncpg
-    }
-)
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+engine_kwargs = {
+    "echo": False,
+}
+
+if is_sqlite:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs.update({
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+        "connect_args": {"timeout": 10}
+    })
+
+engine = create_async_engine(DATABASE_URL, **engine_kwargs)
+
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,

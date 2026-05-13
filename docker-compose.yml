@@ -1,41 +1,31 @@
-version: '3.8'
-
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - frontend
-      - backend
-
   backend:
-    build: 
+    build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
     environment:
       - ENV=production
-      - JWT_SECRET=super-secret-production-key
+      - CORS_ORIGINS=http://localhost:3000
+      # Inject your API Keys here:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-supersecret_production_key_123}
     volumes:
-      # Persist SQLite database across container restarts
       - ./fertilizer.db:/app/fertilizer.db
+      - ./src/data:/app/src/data
+      - ./src/artifact:/app/src/artifact
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./fert-frontend
-      dockerfile: Dockerfile
-      args:
-        # By leaving this blank, React will automatically use the same domain it is hosted on.
-        VITE_API_URL: ""
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
-
-volumes:
-  caddy_data:
-  caddy_config:
+    restart: unless-stopped

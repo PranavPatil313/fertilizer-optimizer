@@ -5,11 +5,13 @@ import sys
 import logging
 import asyncio
 import uuid
-from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks, UploadFile, File, Form
 from datetime import datetime, timedelta, timezone
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
 
 from .schemas import PlotInput, PredictResponse, SoilHealthResponse, CarbonResponse, FeedbackInput
 from . import utils
@@ -20,9 +22,38 @@ from ..recommendation import (
     make_product_blend,
 )
 from src.logging_config import setup_logging
-from src.services.llm import generate_agronomic_insights
+from src.services.llm import generate_agronomic_insights, explain_prediction, chat_with_agronomist, analyze_crop_image, analyze_roi, generate_sms_summary, generate_organic_plan
 from src.auth.api_key_auth import api_key_auth
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    message: str
+    history: List[ChatMessage] = []
+    plot_context: Optional[Dict[str, Any]] = None
+
+class ExplainRequest(BaseModel):
+    plot_data: Dict[str, Any]
+    predictions: Dict[str, Any]
+
+class ROIRequest(BaseModel):
+    plot_data: Dict[str, Any]
+    predictions: Dict[str, Any]
+    fertilizer_blend: Dict[str, Any]
+
+class SmsRequest(BaseModel):
+    plot_data: Dict[str, Any]
+    fertilizer_blend: Dict[str, Any]
+    language: str = "Marathi"
+
+class OrganicPlanRequest(BaseModel):
+    plot_data: Dict[str, Any]
+    recommendation: Dict[str, Any]
+
+class SettingsUpdate(BaseModel):
+    chat_prompt: str
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -53,7 +84,7 @@ def get_rate_limit_key(request: Request):
 from src.api.crud import save_plot, save_prediction, save_plot_weather
 
 from src.db.session import AsyncSessionLocal
-from sqlalchemy import select
+from sqlalchemy import select, text
 from src.db.models import Prediction, Plot
 
 from src.api.auth import router as auth_router
@@ -165,9 +196,15 @@ async def on_startup():
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         print("✅ DATABASE TABLES CREATED")
+        
+        # Pre-load ML models to prevent cold-start latency on the first API request
+        logger.info("Pre-loading ML models into memory...")
+        from src.model_utils import load_artifact
+        utils._CACHED_ARTIFACT = load_artifact()
+        logger.info("✅ ML MODELS PRE-LOADED")
     except Exception as e:
-        logger.warning(f"⚠️  Database initialization failed (server will continue): {e}")
-        print(f"⚠️  Database initialization failed (server will continue): {e}")
+        logger.warning(f"⚠️  Startup sequence issue (server will continue): {e}")
+        print(f"⚠️  Startup sequence issue (server will continue): {e}")
 
 
 app.include_router(auth_router)
@@ -581,6 +618,7 @@ async def report(
     input: PlotInput, 
     company_name: str = None, 
     consultant_name: str = None, 
+    logo_url: str = None,
     authorized: bool = Depends(api_key_auth)
 ):
     """
@@ -633,7 +671,8 @@ async def report(
             blend,
             {"snapshot": weather_snapshot, "risk": weather_risk},
             company_name=company_name,
-            consultant_name=consultant_name
+            consultant_name=consultant_name,
+            logo_url=logo_url
         )
 
         return FileResponse(
@@ -646,8 +685,180 @@ async def report(
         logger.exception("Error in /report endpoint")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------- AI Agronomist & Explainable AI ----------------------
+@app.post("/chat")
+@limiter.limit(RATE_LIMIT)
+async def chat_endpoint(request: Request, payload: ChatRequest):
+    """Interactive chat with Gemini acting as an Agronomist."""
+    try:
+        history_dict = [{"role": msg.role, "content": msg.content} for msg in payload.history]
+        reply = await chat_with_agronomist(
+            message=payload.message, 
+            plot_context=payload.plot_context, 
+            history=history_dict
+        )
+        return {"reply": reply}
+    except Exception as e:
+        logger.exception("Error in /chat endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/explain")
+@limiter.limit(RATE_LIMIT)
+async def explain_endpoint(request: Request, payload: ExplainRequest):
+    """Explainable AI (XAI) - tells the user why the ML pipeline predicted what it did."""
+    try:
+        explanation = await explain_prediction(
+            plot_data=payload.plot_data, 
+            predictions=payload.predictions
+        )
+        return {"explanation": explanation}
+    except Exception as e:
+        logger.exception("Error in /explain endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/analyze-image")
+@limiter.limit(RATE_LIMIT)
+async def analyze_image_endpoint(
+    request: Request,
+    file: UploadFile = File(...),
+    plot_data: str = Form("{}")
+):
+    """Multimodal vision analysis of crop images to detect disease/deficiency."""
+    try:
+        import json
+        plot_dict = json.loads(plot_data)
+        image_bytes = await file.read()
+        analysis = await analyze_crop_image(image_bytes, file.content_type, plot_dict)
+        return {"analysis": analysis}
+    except Exception as e:
+        logger.exception("Error in /analyze-image endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/analyze-roi")
+@limiter.limit(RATE_LIMIT)
+async def analyze_roi_endpoint(request: Request, payload: ROIRequest):
+    """Smart ROI & Economics Analyzer."""
+    try:
+        analysis = await analyze_roi(
+            plot_data=payload.plot_data, 
+            predictions=payload.predictions,
+            blend=payload.fertilizer_blend
+        )
+        return {"analysis": analysis}
+    except Exception as e:
+        logger.exception("Error in /analyze-roi endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/sms-summary")
+@limiter.limit(RATE_LIMIT)
+async def sms_summary_endpoint(request: Request, payload: SmsRequest):
+    """Generates a localized SMS summary for farmers."""
+    try:
+        summary = await generate_sms_summary(
+            plot_data=payload.plot_data,
+            blend=payload.fertilizer_blend,
+            language=payload.language
+        )
+        return {"summary": summary}
+    except Exception as e:
+        logger.exception("Error in /sms-summary endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/organic-plan")
+@limiter.limit(RATE_LIMIT)
+async def organic_plan_endpoint(request: Request, payload: OrganicPlanRequest):
+    """Generates a multi-year organic transition roadmap."""
+    try:
+        plan = await generate_organic_plan(
+            plot_data=payload.plot_data,
+            current_plan=payload.recommendation
+        )
+        return {"plan": plan}
+    except Exception as e:
+        logger.exception("Error in /organic-plan endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/admin/settings")
+@limiter.limit(RATE_LIMIT)
+async def get_admin_settings(request: Request, current_user: dict = Depends(get_current_user_token)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    settings_path = os.path.join(os.path.dirname(__file__), "..", "data", "settings.json")
+    import json
+    if os.path.exists(settings_path):
+        with open(settings_path, "r") as f:
+            return json.load(f)
+    return {"chat_prompt": "You are a helpful, expert agronomist AI assistant."}
+
+@app.post("/admin/settings")
+@limiter.limit(RATE_LIMIT)
+async def save_admin_settings(request: Request, payload: SettingsUpdate, current_user: dict = Depends(get_current_user_token)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    settings_path = os.path.join(os.path.dirname(__file__), "..", "data", "settings.json")
+    import json
+    os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+    with open(settings_path, "w") as f:
+        json.dump({"chat_prompt": payload.chat_prompt}, f)
+    return {"message": "Settings saved"}
+
+@app.post("/admin/clear-cache")
+@limiter.limit(RATE_LIMIT)
+async def clear_ml_cache(request: Request, current_user: dict = Depends(get_current_user_token)):
+    """Hot-swaps ML models and clears Weather/Prediction caches."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    utils._CACHED_ARTIFACT = None
+    utils._PREDICT_CACHE.clear()
+    
+    global WEATHER_SNAPSHOT_CACHE
+    WEATHER_SNAPSHOT_CACHE.clear()
+    
+    return {"message": "All ML and API caches cleared successfully. Next request will reload from disk."}
+
+@app.get("/admin/health")
+@limiter.limit(RATE_LIMIT)
+async def get_system_health(request: Request, current_user: dict = Depends(get_current_user_token)):
+    """Pings system components to verify they are connected and online."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    health = {"database": "offline", "gemini": "offline", "weather": "offline", "ml_models": "offline"}
+    
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+            health["database"] = "online"
+    except Exception:
+        pass
+        
+    if os.getenv("GEMINI_API_KEY"):
+        health["gemini"] = "online"
+    if os.getenv("WEATHER_API_KEY"):
+        health["weather"] = "online"
+        
+    if utils._CACHED_ARTIFACT is not None:
+        health["ml_models"] = "loaded (memory)"
+    elif os.path.exists(os.path.join(os.path.dirname(__file__), "..", "artifact", "model.pkl")):
+        health["ml_models"] = "available (disk)"
+        
+    return health
+
+@app.get("/admin/backup")
+@limiter.limit(RATE_LIMIT)
+async def download_backup(request: Request, current_user: dict = Depends(get_current_user_token)):
+    """Securely download a snapshot of the SQLite database."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./fertilizer.db")
+    if db_url.startswith("sqlite:///"):
+        file_path = db_url.replace("sqlite:///", "")
+        if os.path.exists(file_path):
+            return FileResponse(file_path, filename=f"database_backup_{datetime.now().strftime('%Y%m%d')}.sqlite")
+    raise HTTPException(status_code=400, detail="Direct backup download is only supported for local SQLite configurations.")
 
 # -------------------------------------------------------
 # Logging Middleware

@@ -3,6 +3,9 @@ from ..model_utils import load_artifact
 from ..carbon import compute_co2eq_from_npk
 import pandas as pd
 import numpy as np
+import json
+import hashlib
+import copy
 
 def _prepare_df_from_dict(d: dict, num_cols: list, cat_cols: list):
     # Create a copy to avoid modifying the original
@@ -34,11 +37,26 @@ def _prepare_df_from_dict(d: dict, num_cols: list, cat_cols: list):
     # reorder not required
     return df
 
+# Global memory cache to prevent reloading ML models from disk on every request
+_CACHED_ARTIFACT = None
+# LRU-style dictionary cache for identical prediction requests
+_PREDICT_CACHE = {}
+
 def predict_npk_and_yield(input_dict: dict):
     """
     Predict NPK requirements and yield, with agronomic validation.
     """
-    artifact = load_artifact()
+    # Cache Key Generation
+    key_str = json.dumps(input_dict, sort_keys=True)
+    cache_key = hashlib.md5(key_str.encode()).hexdigest()
+    if cache_key in _PREDICT_CACHE:
+        return copy.deepcopy(_PREDICT_CACHE[cache_key])
+
+    global _CACHED_ARTIFACT
+    if _CACHED_ARTIFACT is None:
+        _CACHED_ARTIFACT = load_artifact()
+        
+    artifact = _CACHED_ARTIFACT
     preproc = artifact["preprocessor"]
     models = artifact["model_bundle"]["models"]
     metadata = artifact["metadata"]
@@ -151,7 +169,35 @@ def predict_npk_and_yield(input_dict: dict):
                 out["P_kg_ha"] = max(5.0, out["P_kg_ha"] * reduction_factor)
                 out["K_kg_ha"] = max(10.0, out["K_kg_ha"] * reduction_factor)
         
+        # --- Target Yield Scenario Planner ---
+        target_yield_acre = input_dict.get("target_yield_kg_acre")
+        if target_yield_acre and float(target_yield_acre) > 0:
+            try:
+                target_yield_ha = float(target_yield_acre) / 0.404686
+                predicted_yield = out.get("yield_kg_ha", 0.0)
+                if target_yield_ha > predicted_yield and predicted_yield > 0:
+                    # Limit scaling to a max of +50% to prevent unsafe extreme recommendations
+                    ratio = min(target_yield_ha / predicted_yield, 1.50)
+                    out["N_kg_ha"] = min(out["N_kg_ha"] * ratio, 400.0)
+                    out["P_kg_ha"] = min(out["P_kg_ha"] * ratio, 150.0)
+                    out["K_kg_ha"] = min(out["K_kg_ha"] * ratio, 300.0)
+                    
+                    achieved_yield_ha = predicted_yield * ratio
+                    out["yield_kg_ha"] = achieved_yield_ha
+                    insights.append(f"🎯 Target Yield Mode: Nutrient requirements dynamically scaled by {round((ratio-1)*100)}% to support an ambitious yield goal of {round(float(target_yield_acre))} kg/acre.")
+                elif target_yield_ha <= predicted_yield:
+                    insights.append(f"🎯 Target Yield Mode: Your baseline soil and climate already support your goal of {round(float(target_yield_acre))} kg/acre.")
+            except (ValueError, TypeError):
+                pass
+
         out["insights"] = insights
+        
+        # Save to memory cache (limit size to 1000 to prevent memory leaks)
+        _PREDICT_CACHE[cache_key] = copy.deepcopy(out)
+        if len(_PREDICT_CACHE) > 1000:
+            # Remove oldest (first inserted) item
+            _PREDICT_CACHE.pop(next(iter(_PREDICT_CACHE)))
+            
         return out
     except (KeyError, ValueError) as e:
         error_msg = str(e)
@@ -168,6 +214,12 @@ def predict_npk_and_yield(input_dict: dict):
                 if target in models:
                     pred = models[target].predict(Xp)[0]
                     out[target] = float(pred)
+            
+            # Cache the retried result as well
+            _PREDICT_CACHE[cache_key] = copy.deepcopy(out)
+            if len(_PREDICT_CACHE) > 1000:
+                _PREDICT_CACHE.pop(next(iter(_PREDICT_CACHE)))
+                
             return out
         # Better error message for missing columns
         missing_cols = set(num_cols + cat_cols) - set(df.columns if 'df' in locals() else [])

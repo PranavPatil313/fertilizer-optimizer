@@ -24,7 +24,8 @@ const initial = {
   pH: 6.5,
   organic_matter_pct: 2.0,
   irrigation_type: "rainfed",
-  area_acre: 2.5
+  area_acre: 2.5,
+  target_yield_kg_acre: ""
 };
 
 // Default crop durations in days (used to autofill until user overrides)
@@ -169,8 +170,9 @@ const sections = [
   {
     title: "Operations",
     fields: [
-      { key: "irrigation_type", label: "Irrigation Type", type: "text", options: ["rainfed"] },
+      { key: "irrigation_type", label: "Irrigation Type", type: "text", options: ["rainfed", "irrigated"] },
       { key: "area_acre", label: "Area (acre)", type: "number", min: 0.01, step: 0.01 },
+      { key: "target_yield_kg_acre", label: "Target Yield Goal (kg/acre)", type: "number", min: 0, helpText: "Optional: ML will scale nutrients to meet this target." },
     ],
   },
 ];
@@ -204,6 +206,7 @@ export default function CreatePlot() {
     loading: false,
     error: "",
   });
+  const [locating, setLocating] = useState(false);
   const [weatherAutofillDone, setWeatherAutofillDone] = useState(false);
   const [durationTouched, setDurationTouched] = useState(false);
   const nav = useNavigate();
@@ -275,6 +278,38 @@ export default function CreatePlot() {
     autoFillWeather();
   }, [payload.region, weatherAutofillDone]);
 
+  function handleDetectLocation() {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const data = await fetchWeatherPreview({ lat: latitude, lon: longitude });
+          const defaults = data?.defaults || {};
+          setPayload((prev) => ({
+            ...prev,
+            region: `GPS: ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`,
+            avg_temp: defaults.avg_temp ?? prev.avg_temp,
+            rainfall_mm: defaults.rainfall_mm ?? prev.rainfall_mm,
+          }));
+        } catch (e) {
+          console.error("Location weather fetch failed", e);
+          alert("Could not fetch weather for your exact location.");
+        } finally {
+          setLocating(false);
+        }
+      },
+      (error) => {
+        setLocating(false);
+        alert("Unable to retrieve your location.");
+      }
+    );
+  }
+
   useEffect(() => {
     async function hydratePreview() {
       // Validate payload has all required fields before making API calls
@@ -325,6 +360,7 @@ export default function CreatePlot() {
           pH: debouncedPayload.pH != null ? Number(debouncedPayload.pH) : 0,
           organic_matter_pct: debouncedPayload.organic_matter_pct != null ? Number(debouncedPayload.organic_matter_pct) : 0,
           area_acre: Number(areaValue),
+          target_yield_kg_acre: debouncedPayload.target_yield_kg_acre ? Number(debouncedPayload.target_yield_kg_acre) : undefined,
         };
         
         // Remove any old area_ha field if it exists
@@ -452,6 +488,16 @@ export default function CreatePlot() {
                           </button>
                         ))}
                       </div>
+                    )}
+                    {field.key === "region" && (
+                      <button
+                        type="button"
+                        onClick={handleDetectLocation}
+                        className="mt-2 text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1.5 w-fit bg-emerald-50 px-3 py-1.5 rounded-full transition-colors border border-emerald-100"
+                        disabled={locating}
+                      >
+                        <span>📍</span> {locating ? "Acquiring satellites..." : "Use current GPS location"}
+                      </button>
                     )}
                   </label>
                 ))}

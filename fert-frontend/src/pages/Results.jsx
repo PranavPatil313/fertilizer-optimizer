@@ -10,7 +10,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { downloadReport } from "../api/api";
+import { downloadReport, explainPrediction, analyzeRoi, generateSmsSummary, generateOrganicPlan } from "../api/api";
+import ChatbotWidget from "../components/ChatbotWidget";
 import useAuth from "../auth/useAuth";
 import { kgHaToKgAcre } from "../utils/unitConversion";
 
@@ -58,6 +59,27 @@ export default function Results() {
   const [downloading, setDownloading] = useState(false);
   const [companyName, setCompanyName] = useState(() => localStorage.getItem("brand_company") || "");
   const [consultantName, setConsultantName] = useState(() => localStorage.getItem("brand_consultant") || "");
+  const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem("brand_logo") || "");
+
+  // Explain Why states
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [explanation, setExplanation] = useState("");
+  const [explainModalOpen, setExplainModalOpen] = useState(false);
+
+  // ROI states
+  const [isAnalyzingRoi, setIsAnalyzingRoi] = useState(false);
+  const [roiAnalysis, setRoiAnalysis] = useState("");
+  const [roiModalOpen, setRoiModalOpen] = useState(false);
+
+  // SMS states
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [smsSummary, setSmsSummary] = useState("");
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+
+  // Organic Plan states
+  const [isPlanningOrganic, setIsPlanningOrganic] = useState(false);
+  const [organicPlan, setOrganicPlan] = useState("");
+  const [organicPlanModalOpen, setOrganicPlanModalOpen] = useState(false);
 
   const persistedResult = useMemo(() => {
     if (state?.result) return state.result;
@@ -146,6 +168,10 @@ export default function Results() {
         queryParams.append("consultant_name", consultantName);
         localStorage.setItem("brand_consultant", consultantName);
       }
+      if (logoUrl) {
+        queryParams.append("logo_url", logoUrl);
+        localStorage.setItem("brand_logo", logoUrl);
+      }
       const endpoint = `/report${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
       const blob = await downloadReport(endpoint, persistedInput, user ? localStorage.getItem("access_token") : null);
       const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
@@ -156,6 +182,89 @@ export default function Results() {
     } finally {
       setDownloading(false);
     }
+  }
+
+  async function handleExplain() {
+    setExplainModalOpen(true);
+    if (explanation) return; // already fetched
+    setIsExplaining(true);
+    try {
+      const data = await explainPrediction({
+        plot_data: persistedInput,
+        predictions: res.predictions,
+      });
+      setExplanation(data.explanation);
+    } catch (err) {
+      setExplanation("Sorry, could not generate an explanation at this time.");
+    } finally {
+      setIsExplaining(false);
+    }
+  }
+
+  async function handleAnalyzeRoi() {
+    setRoiModalOpen(true);
+    if (roiAnalysis) return; // already fetched
+    setIsAnalyzingRoi(true);
+    try {
+      const data = await analyzeRoi({
+        plot_data: persistedInput,
+        predictions: res.predictions,
+        fertilizer_blend: res.fertilizer_blend,
+      });
+      setRoiAnalysis(data.analysis);
+    } catch (err) {
+      setRoiAnalysis("Sorry, could not generate an economic analysis at this time.");
+    } finally {
+      setIsAnalyzingRoi(false);
+    }
+  }
+
+  async function handleSmsTranslate(lang) {
+    setSmsModalOpen(true);
+    setSmsSummary(""); // reset for new language
+    setIsTranslating(true);
+    try {
+      const data = await generateSmsSummary({
+        plot_data: persistedInput,
+        fertilizer_blend: res.fertilizer_blend,
+        language: lang
+      });
+      setSmsSummary(data.summary);
+    } catch (err) {
+      setSmsSummary(`Failed to generate ${lang} summary.`);
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
+  async function handleOrganicPlan() {
+    setOrganicPlanModalOpen(true);
+    if (organicPlan) return;
+    setIsPlanningOrganic(true);
+    try {
+      const data = await generateOrganicPlan({
+        plot_data: persistedInput,
+        recommendation: res.recommendation,
+      });
+      setOrganicPlan(data.plan);
+    } catch (err) {
+      setOrganicPlan("Failed to generate organic transition plan.");
+    } finally {
+      setIsPlanningOrganic(false);
+    }
+  }
+
+  // Reusable Simple Markdown Renderer
+  function renderSimpleMarkdown(text) {
+    return text.split('\n').map((line, i) => (
+      <p key={i} className="mb-3 last:mb-0 min-h-[1rem]">
+        {line.split(/(\*\*.*?\*\*)/g).map((part, j) => 
+          part.startsWith('**') && part.endsWith('**') 
+            ? <strong key={j} className="text-slate-900">{part.slice(2, -2)}</strong> 
+            : part
+        )}
+      </p>
+    ));
   }
 
   return (
@@ -181,23 +290,60 @@ export default function Results() {
               Plot ID {res.plot_id ?? "—"} • Prediction ID {res.prediction_id ?? "—"}
             </p>
           </div>
-        <div className="flex flex-col md:flex-row items-end gap-3 mt-4 md:mt-0">
+        <div className="flex flex-wrap items-center justify-end gap-2 mt-4 md:mt-0">
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Company Name (Opt)"
+              placeholder="Company Name"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none w-36 sm:w-auto bg-gray-50 hover:bg-white transition-colors"
+              className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none w-28 sm:w-auto bg-gray-50 hover:bg-white transition-colors"
             />
             <input
               type="text"
-              placeholder="Consultant (Opt)"
+              placeholder="Logo URL"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none w-28 sm:w-auto bg-gray-50 hover:bg-white transition-colors"
+            />
+            <input
+              type="text"
+              placeholder="Consultant"
               value={consultantName}
               onChange={(e) => setConsultantName(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none w-36 sm:w-auto bg-gray-50 hover:bg-white transition-colors"
+              className="px-3 py-2 text-sm rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none w-28 sm:w-auto bg-gray-50 hover:bg-white transition-colors"
             />
           </div>
+            <button
+              onClick={handleExplain}
+              className="rounded-full px-5 py-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 shadow-sm hover:bg-emerald-100 transition-all flex items-center gap-1.5"
+            >
+              <span className="text-base leading-none">✨</span> Explain Why
+            </button>
+            <button
+              onClick={handleAnalyzeRoi}
+              className="rounded-full px-5 py-2 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 shadow-sm hover:bg-blue-100 transition-all flex items-center gap-1.5"
+            >
+              <span className="text-base leading-none">📈</span> Analyze ROI
+            </button>
+            <button
+              onClick={handleOrganicPlan}
+              className="rounded-full px-5 py-2 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 shadow-sm hover:bg-green-100 transition-all flex items-center gap-1.5"
+            >
+              <span className="text-base leading-none">🌱</span> 3-Yr Organic Plan
+            </button>
+            <button
+              onClick={() => handleSmsTranslate("Marathi")}
+              className="rounded-full px-5 py-2 text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 shadow-sm hover:bg-orange-100 transition-all flex items-center gap-1.5"
+            >
+              <span className="text-base leading-none">📱</span> Marathi SMS
+            </button>
+            <button
+              onClick={() => handleSmsTranslate("Hindi")}
+              className="rounded-full px-5 py-2 text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 shadow-sm hover:bg-orange-100 transition-all flex items-center gap-1.5"
+            >
+              <span className="text-base leading-none">📱</span> Hindi SMS
+            </button>
             <button
               onClick={handleDownloadPDF}
               disabled={downloading}
@@ -322,6 +468,8 @@ export default function Results() {
             plan={res.recommendation?.plan}
             title="Fertilizer plan"
             notes={res.recommendation?.notes}
+            plotData={persistedInput}
+            blendData={res.fertilizer_blend}
           />
           <KeyValueCard title="Organic substitute" payload={res.organic_substitute} />
           <BlendCard
@@ -331,6 +479,121 @@ export default function Results() {
         </div>
       </div>
     </div>
+
+    {/* Explain Why Modal */}
+    {explainModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl animate-zoom-in relative">
+          <button 
+            onClick={() => setExplainModalOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">✨</span>
+            <h3 className="text-xl font-semibold text-slate-900">AI Agronomist Explanation</h3>
+          </div>
+          <div className="text-slate-700 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {isExplaining ? (
+              <div className="flex items-center gap-2 text-emerald-600 animate-pulse font-medium">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Analyzing prediction data...
+              </div>
+            ) : (
+              renderSimpleMarkdown(explanation)
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ROI Modal */}
+    {roiModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl animate-zoom-in relative border-t-4 border-blue-500">
+          <button 
+            onClick={() => setRoiModalOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">📈</span>
+            <h3 className="text-xl font-semibold text-slate-900">Economic & ROI Analysis</h3>
+          </div>
+          <div className="text-slate-700 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {isAnalyzingRoi ? (
+              <div className="flex items-center gap-2 text-blue-600 animate-pulse font-medium">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Calculating economics...
+              </div>
+            ) : (
+              renderSimpleMarkdown(roiAnalysis)
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* SMS Modal */}
+    {smsModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl animate-zoom-in relative border-t-4 border-orange-500">
+          <button 
+            onClick={() => setSmsModalOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">📱</span>
+            <h3 className="text-xl font-semibold text-slate-900">Localized SMS Summary</h3>
+          </div>
+          <div className="text-slate-700 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar bg-orange-50 p-4 rounded-xl border border-orange-100">
+            {isTranslating ? (
+              <div className="flex items-center gap-2 text-orange-600 animate-pulse font-medium">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Translating for farmer...
+              </div>
+            ) : (
+              renderSimpleMarkdown(smsSummary)
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Organic Plan Modal */}
+    {organicPlanModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl animate-zoom-in relative border-t-4 border-green-500">
+          <button 
+            onClick={() => setOrganicPlanModalOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🌱</span>
+            <h3 className="text-xl font-semibold text-slate-900">3-Year Organic Transition</h3>
+          </div>
+          <div className="text-slate-700 text-sm leading-relaxed max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            {isPlanningOrganic ? (
+              <div className="flex items-center gap-2 text-green-600 animate-pulse font-medium">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Generating regenerative roadmap...
+              </div>
+            ) : (
+              renderSimpleMarkdown(organicPlan)
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Floating Chatbot Widget */}
+    <ChatbotWidget plotContext={persistedInput} />
     </>
   );
 }
@@ -478,7 +741,7 @@ function BlendCard({ title, blend }) {
   );
 }
 
-function PlanTable({ plan = [], title, notes }) {
+function PlanTable({ plan = [], title, notes, plotData, blendData }) {
   if (!plan || plan.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
@@ -486,6 +749,64 @@ function PlanTable({ plan = [], title, notes }) {
       </div>
     );
   }
+
+  function handleDownloadCalendar() {
+    let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Fertilizer Optimizer//EN\n";
+    const plotName = plotData?.plot_name || plotData?.crop_type || "Plot";
+    
+    plan.forEach((event, idx) => {
+      const date = new Date();
+      date.setDate(date.getDate() + event.day);
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const dtstart = `${year}${month}${day}T090000Z`;
+      const dtend = `${year}${month}${day}T100000Z`;
+      
+      ics += "BEGIN:VEVENT\n";
+      ics += `UID:fertopt-${Date.now()}-${idx}@agtech.com\n`;
+      ics += `DTSTAMP:${dtstart}\n`;
+      ics += `DTSTART:${dtstart}\n`;
+      ics += `DTEND:${dtend}\n`;
+      ics += `SUMMARY:Apply ${event.application} Fertilizer - ${plotName}\n`;
+      ics += `DESCRIPTION:Application: N: ${event.N_kg_ha} kg/ha\\, P: ${event.P_kg_ha} kg/ha\\, K: ${event.K_kg_ha} kg/ha\n`;
+      ics += "END:VEVENT\n";
+    });
+    ics += "END:VCALENDAR";
+    
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Fertilizer_Plan_${plotName.replace(/\s+/g, '_')}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleWhatsAppShare() {
+    const plotName = plotData?.plot_name || plotData?.crop_type || "Plot";
+    let text = `🌱 *Fertilizer Plan for ${plotName}* 🌱\n\n`;
+    
+    if (blendData?.products && blendData.products.length > 0) {
+      text += `*Required Products (per acre):*\n`;
+      blendData.products.forEach(p => {
+        text += `• ${p.name}: ${p.rate_kg_acre} kg\n`;
+      });
+      text += `\n`;
+    }
+    
+    text += `*Application Schedule:*\n`;
+    plan.forEach(event => {
+      text += `• Day ${event.day} (${event.application}): N:${event.N_kg_ha}, P:${event.P_kg_ha}, K:${event.K_kg_ha} kg/ha\n`;
+    });
+    
+    text += `\n_Generated by Fertilizer Optimizer AI_`;
+    
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  }
+
   return (
     <div className="rounded-2xl border border-gray-100 p-4">
       <p className="font-semibold text-gray-900 mb-2">{title}</p>
@@ -516,6 +837,20 @@ function PlanTable({ plan = [], title, notes }) {
           {Array.isArray(notes) ? notes.join(" ") : notes}
         </p>
       )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          onClick={handleDownloadCalendar}
+          className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition border border-blue-200 flex items-center gap-1.5"
+        >
+          <span>📅</span> Add to Calendar
+        </button>
+        <button
+          onClick={handleWhatsAppShare}
+          className="text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg transition border border-green-200 flex items-center gap-1.5"
+        >
+          <span>💬</span> Send via WhatsApp
+        </button>
+      </div>
     </div>
   );
 }

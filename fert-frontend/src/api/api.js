@@ -133,6 +133,52 @@ export async function fetchCarbonEstimate(payload) {
   return response.data;
 }
 
+export async function askAgronomist(payload) {
+  const response = await instance.post("/chat", payload, {
+    headers: buildHeaders({ includeAuth: true, includeApiKey: true }),
+  });
+  return response.data;
+}
+
+export async function explainPrediction(payload) {
+  const response = await instance.post("/explain", payload, {
+    headers: buildHeaders({ includeAuth: true, includeApiKey: true }),
+  });
+  return response.data;
+}
+
+export async function analyzeCropImage(file, plotData) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("plot_data", JSON.stringify(plotData || {}));
+  
+  const response = await instance.post("/analyze-image", formData, {
+    headers: buildHeaders({ includeAuth: true, includeApiKey: true, contentType: null }),
+  });
+  return response.data;
+}
+
+export async function analyzeRoi(payload) {
+  const response = await instance.post("/analyze-roi", payload, {
+    headers: buildHeaders({ includeAuth: true, includeApiKey: true }),
+  });
+  return response.data;
+}
+
+export async function generateSmsSummary(payload) {
+  const response = await instance.post("/sms-summary", payload, {
+    headers: buildHeaders({ includeAuth: true, includeApiKey: true }),
+  });
+  return response.data;
+}
+
+export async function generateOrganicPlan(payload) {
+  const response = await instance.post("/organic-plan", payload, {
+    headers: buildHeaders({ includeAuth: true, includeApiKey: true }),
+  });
+  return response.data;
+}
+
 export async function fetchWeatherPreview({ region, lat, lon } = {}) {
   const params = {};
   if (lat != null && lon != null) {
@@ -277,6 +323,42 @@ export async function cancelTrainingJob(jobId) {
 export async function deleteTrainingJob(jobId) {
   const response = await instance.delete(`/admin/training-jobs/${jobId}`, {
     headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
+export async function fetchAdminSettings() {
+  const response = await instance.get("/admin/settings", {
+    headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
+export async function saveAdminSettings(payload) {
+  const response = await instance.post("/admin/settings", payload, {
+    headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
+export async function clearAdminCache() {
+  const response = await instance.post("/admin/clear-cache", null, {
+    headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
+export async function fetchSystemHealth() {
+  const response = await instance.get("/admin/health", {
+    headers: buildHeaders({ includeAuth: true }),
+  });
+  return response.data;
+}
+
+export async function downloadDatabaseBackup() {
+  const response = await instance.get("/admin/backup", {
+    headers: buildHeaders({ includeAuth: true }),
+    responseType: "blob",
   });
   return response.data;
 }
