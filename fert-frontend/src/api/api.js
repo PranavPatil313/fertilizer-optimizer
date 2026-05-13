@@ -2,7 +2,7 @@
 import axios from "axios";
 
 export const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8000";
+  (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
 const API_KEY = import.meta.env.VITE_API_KEY || "changeme123";
 
 export function getToken() {
