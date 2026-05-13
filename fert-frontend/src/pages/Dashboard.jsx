@@ -126,7 +126,7 @@ export default function Dashboard() {
     }
     try {
       const token = localStorage.getItem("access_token");
-      const apiBase = import.meta.env.VITE_API_URL || API_URL || "http://localhost:8000";
+      const apiBase = (import.meta.env.VITE_API_URL || API_URL || "http://localhost:8000").replace(/\/$/, "");
       const res = await fetch(`${apiBase}/predictions/${predictionId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
@@ -168,7 +168,7 @@ export default function Dashboard() {
         setImportProgress({ current: 0, total: parsedPlots.length });
         let successCount = 0;
         const token = localStorage.getItem("access_token");
-        const apiBase = import.meta.env.VITE_API_URL || API_URL || "http://localhost:8000";
+        const apiBase = (import.meta.env.VITE_API_URL || API_URL || "http://localhost:8000").replace(/\/$/, "");
         
         for (let i = 0; i < parsedPlots.length; i++) {
           try {

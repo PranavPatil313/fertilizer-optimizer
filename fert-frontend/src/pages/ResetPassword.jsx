@@ -23,7 +23,7 @@ export default function ResetPassword() {
     }
     setSubmitting(true);
     try {
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
       const res = await axios.post(`${apiBase}/auth/reset-password`, { token, new_password: password });
       setMsg(res.data.message);
       setTimeout(() => navigate("/login"), 3000);

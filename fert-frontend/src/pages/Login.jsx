@@ -42,7 +42,7 @@ export default function Login() {
     setErr("");
     try {
       // Using raw axios to bypass auth interceptors
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
       const res = await axios.post(`${apiBase}/auth/forgot-password`, { email: forgotEmail });
       setForgotMsg(res.data.message);
       setTimeout(() => setShowForgot(false), 5000);

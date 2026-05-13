@@ -233,7 +233,7 @@ export default function AdminPanel() {
     if (!confirmed) return;
     try {
       const token = localStorage.getItem("access_token");
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
       const res = await fetch(`${apiBase}/admin/trigger-weekly-reports`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }
