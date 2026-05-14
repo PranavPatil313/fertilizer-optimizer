@@ -58,9 +58,9 @@ export default function InputForm({ onSubmit, submitLabel }) {
 
   return (
     <form onSubmit={submit} className="w-full max-w-4xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
-        {Object.entries(fieldGroups).map(([groupName, fields]) => (
-          <div key={groupName} className="space-y-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 animate-fade-in-up">
+        {Object.entries(fieldGroups).map(([groupName, fields], index) => (
+          <div key={groupName} className={`space-y-4 animate-fade-in-up delay-${(index + 1) * 100}`}>
             <h3 className="text-sm sm:text-base font-semibold text-slate-900 px-1 pb-2 border-b border-slate-200">
               {groupName}
             </h3>
@@ -85,7 +85,7 @@ export default function InputForm({ onSubmit, submitLabel }) {
           </div>
         ))}
 
-        <div className="pt-4 sm:pt-6 border-t border-slate-200">
+        <div className={`pt-4 sm:pt-6 border-t border-slate-200 animate-fade-in-up delay-${(Object.keys(fieldGroups).length + 1) * 100}`}>
           <button
             type="submit"
             className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg sm:rounded-full transition min-h-touch flex items-center justify-center shadow-md hover:shadow-lg text-sm sm:text-base"

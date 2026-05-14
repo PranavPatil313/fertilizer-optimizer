@@ -68,26 +68,36 @@ const ChatbotWidget = ({ plotContext }) => {
       <div className="fixed bottom-6 right-6 z-50">
         <button
           onClick={toggleChat}
-          className="bg-primary-600 text-white rounded-full p-4 shadow-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-transform transform hover:scale-110"
+          className="relative flex items-center justify-center bg-emerald-600 text-white rounded-full p-4 shadow-lg shadow-emerald-600/30 hover:bg-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all duration-300 transform hover:scale-110 active:scale-95"
           aria-label="Toggle Agronomist Chat"
         >
-          <ChatBubbleOvalLeftEllipsisIcon className="h-8 w-8" />
+          <ChatBubbleOvalLeftEllipsisIcon className={`h-7 w-7 absolute transition-all duration-300 ${isOpen ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} />
+          <XMarkIcon className={`h-7 w-7 absolute transition-all duration-300 ${isOpen ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'}`} />
+          {/* Placeholder to maintain button size */}
+          <div className="h-7 w-7 opacity-0 pointer-events-none"></div>
         </button>
       </div>
 
       {/* Chat Window */}
-      {isOpen && (
-        <div className="fixed bottom-24 right-6 w-full max-w-md h-[60vh] bg-white rounded-xl shadow-2xl flex flex-col z-50 border border-gray-200">
+      <div 
+        className={`fixed bottom-24 right-4 sm:right-6 w-[calc(100%-2rem)] sm:w-[400px] h-[60vh] min-h-[450px] max-h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 overflow-hidden transform transition-all duration-300 origin-bottom-right ${
+          isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8 pointer-events-none"
+        }`}
+        aria-hidden={!isOpen}
+      >
           {/* Header */}
-          <div className="flex justify-between items-center p-4 bg-gray-50 border-b border-gray-200 rounded-t-xl">
-            <h3 className="text-lg font-semibold text-gray-800">AI Agronomist</h3>
-            <button onClick={toggleChat} className="text-gray-400 hover:text-gray-600">
-              <XMarkIcon className="h-6 w-6" />
+          <div className="flex justify-between items-center p-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm z-10">
+            <div className="flex items-center space-x-2">
+              <div className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse"></div>
+              <h3 className="text-base font-semibold tracking-wide">AI Agronomist</h3>
+            </div>
+            <button onClick={toggleChat} className="text-white/80 hover:text-white hover:bg-white/20 p-1.5 rounded-full transition-colors">
+              <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          <div className="flex-1 p-4 overflow-y-auto space-y-5 bg-slate-50/50">
             {messages.map((msg, index) => (
               <div
                 key={index}
@@ -96,10 +106,10 @@ const ChatbotWidget = ({ plotContext }) => {
                 }`}
               >
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow ${
+                  className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
                     msg.role === "user"
-                      ? "bg-primary-500 text-white"
-                      : "bg-gray-200 text-gray-800"
+                      ? "bg-emerald-600 text-white rounded-br-sm"
+                      : "bg-white border border-slate-100 text-slate-800 rounded-bl-sm"
                   }`}
                 >
                   {msg.content.split('\n').map((line, i) => (
@@ -117,12 +127,10 @@ const ChatbotWidget = ({ plotContext }) => {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg shadow">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-0"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-200"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-400"></div>
-                  </div>
+                <div className="bg-white border border-slate-100 px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm flex items-center space-x-1.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
               </div>
             )}
@@ -130,27 +138,26 @@ const ChatbotWidget = ({ plotContext }) => {
           </div>
 
           {/* Input Form */}
-          <div className="p-4 border-t border-gray-200 bg-white rounded-b-xl">
-            <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+          <div className="p-3 sm:p-4 bg-white border-t border-slate-100">
+            <form onSubmit={handleSendMessage} className="relative flex items-center">
               <input
                 type="text"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 placeholder="Ask a question..."
-                className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500"
-                disabled={isLoading}
+                className="w-full pl-4 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm transition-all placeholder-slate-400"
+                disabled={isLoading || !isOpen}
               />
               <button
                 type="submit"
-                className="bg-primary-600 text-white rounded-full p-3 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:bg-gray-400"
-                disabled={isLoading || !userInput.trim()}
+                className="absolute right-1.5 bg-emerald-600 text-white rounded-full p-2 hover:bg-emerald-500 focus:outline-none transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md transform hover:scale-105 active:scale-95"
+                disabled={isLoading || !userInput.trim() || !isOpen}
               >
-                <PaperAirplaneIcon className="h-5 w-5" />
+                <PaperAirplaneIcon className="h-4 w-4 -ml-0.5" />
               </button>
             </form>
           </div>
         </div>
-      )}
     </>
   );
 };
