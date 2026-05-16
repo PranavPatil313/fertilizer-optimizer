@@ -270,6 +270,23 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all 500 errors and attach CORS headers so the frontend can read the exact error."""
+    logger.exception(f"Unhandled Server Error on {request.url.path}: {str(exc)}")
+    
+    origin = request.headers.get("origin")
+    cors_origin = origin if origin and origin in origins else (origins[0] if origins else "*")
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Server Error: {str(exc)}", "type": exc.__class__.__name__},
+        headers={
+            "Access-Control-Allow-Origin": cors_origin,
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
 
 # -------------------------------------------------------
 # Routes
