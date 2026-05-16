@@ -112,14 +112,50 @@ async def chat_with_agronomist(message, plot_context=None, history=None):
             for msg in history:
                 # Map roles correctly to Gemini's expected 'user' or 'model'
                 role = "model" if msg.get("role") in ["model", "assistant"] else "user"
-                formatted_history.append({"role": role, "parts": [msg.get("content", "")]})
+                content = msg.get("content", "")
+                
+                # Gemini requires strictly alternating roles (user -> model -> user). 
+                # We merge consecutive identical roles to prevent the 400 InvalidArgument error.
+                if formatted_history and formatted_history[-1]["role"] == role:
+                    formatted_history[-1]["parts"][0] += f"\n\n{content}"
+                else:
+                    formatted_history.append({"role": role, "parts": [content]})
+        
+        # If the history ends with a 'user' message, sending a new 'user' message via send_message_async 
+        # will cause consecutive 'user' roles and crash. Extract it and merge with the current message.
+        if formatted_history and formatted_history[-1]["role"] == "user":
+            last_user_msg = formatted_history.pop()
+            if last_user_msg["parts"][0].strip() != message.strip():
+                message = last_user_msg["parts"][0] + "\n\n" + message
         
         chat = model.start_chat(history=formatted_history)
-        response = await chat.send_message_async(message)
-        return response.text
+        
+        # Lower safety thresholds to prevent false positives when discussing crop chemicals
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
+        ]
+        
+        response = await chat.send_message_async(message, safety_settings=safety_settings)
+        
+        try:
+            return response.text
+        except ValueError:
+            return "I couldn't generate a response due to AI safety filters. Please try rephrasing."
+            
     except Exception as e:
         logger.error(f"Failed to chat with agronomist: {e}")
-        return "I'm having trouble connecting to the agronomy database right now. Please try again."
+        
+        # Return the actual error message dynamically so users know if it's an API Key or Quota issue
+        error_str = str(e).lower()
+        if "api_key" in error_str or "403" in error_str:
+            return "There is an issue with the Gemini API Key configuration. Please check your settings."
+        elif "429" in error_str or "quota" in error_str:
+            return "The AI quota has been exceeded. Please try again later."
+            
+        return f"I'm having trouble connecting right now ({str(e)}). Please try again."
 
 async def analyze_crop_image(image_bytes: bytes, mime_type: str, plot_data: dict):
     """

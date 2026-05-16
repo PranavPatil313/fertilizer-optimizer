@@ -52,9 +52,10 @@ const ChatbotWidget = ({ plotContext }) => {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Failed to get response from AI Agronomist:", error);
+      const errorDetail = error.response?.data?.detail || error.message || "Sorry, I'm having trouble connecting. Please try again later.";
       const errorMessage = {
         role: "assistant",
-        content: "Sorry, I'm having trouble connecting. Please try again later.",
+        content: `Connection Error: ${errorDetail}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
