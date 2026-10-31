@@ -32,7 +32,6 @@ src/artifact/*.pdf
 *.pkl
 # But include specific model files in src/artifact/
 !src/artifact/model.pkl
-!src/artifact/model_artifact_v1.pkl
 !src/artifact/preprocessor.pkl
 # Include metadata.json
 !src/artifact/metadata.json
