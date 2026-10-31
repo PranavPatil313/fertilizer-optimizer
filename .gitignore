@@ -1,26 +1,40 @@
-# Environments and Secrets
+# Secrets and local configuration
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+*.pem
+*.key
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
 venv/
 env/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Node / Frontend
+# Node / frontend
 node_modules/
 fert-frontend/node_modules/
 fert-frontend/dist/
 fert-frontend/build/
 
-# Database
+# Local databases and runtime data
 *.db
+*.sqlite
 *.sqlite3
+/db
 fertilizer.db
 
-# OS generated files
+# User-uploaded and generated data
+src/data/uploads/
+src/data/processed/
+src/artifact/*.pdf
+src/artifact/job_*/
+
+# OS / editor
 .DS_Store
+.vscode/
