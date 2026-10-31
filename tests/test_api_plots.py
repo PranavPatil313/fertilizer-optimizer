@@ -2,7 +2,7 @@
 import asyncio
 import os
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from src.api.main import app
 from src.db.session import AsyncSessionLocal
 from src.db.models import User, Plot, Prediction
@@ -33,7 +33,7 @@ async def test_plots_endpoint_roundtrip():
     # create token for user
     token = create_access_token({"sub": str(user.email), "user_id": user.id})
 
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         headers = {"Authorization": f"Bearer {token}"}
         r = await client.get("/api/plots", headers=headers)
         assert r.status_code == 200
