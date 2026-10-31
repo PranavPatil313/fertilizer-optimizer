@@ -117,7 +117,7 @@ See the live OpenAPI schema at `/docs` after starting the backend for request an
 
 ## Configuration
 
-The repository includes `.env.example` as a starting point. Keep actual secrets in an untracked `.env` file or your deployment platform's secret manager. Values beginning with `VITE_` are embedded in the browser bundle and must never contain privileged secrets.
+The repository includes `.env.example` as a starting point. Keep actual secrets in an untracked `.env` file or your deployment platform's secret manager. Values beginning with `VITE_` are embedded in the browser bundle and are visible to every user. The current API uses `x-api-key` on selected routes; for local testing, set `VITE_API_KEY` to match the backend `API_KEY`. This is not a secure way to protect a production API because browser users can extract the key. Before a public deployment, move the privileged key to a server-side proxy or redesign the route authorization to rely on per-user authentication and server-side controls.
 
 ## Validation and limitations
 
