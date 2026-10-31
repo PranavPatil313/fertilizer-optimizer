@@ -15,7 +15,7 @@ from jose import jwt, JWTError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 ADMIN_EMAILS = {email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()}
-SECRET = os.getenv("SECRET_KEY", os.getenv("JWT_SECRET", "super-secret-key"))
+SECRET = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,8 @@ async def forgot_password(payload: ForgotPasswordRequest, background_tasks: Back
 @router.post("/reset-password")
 async def reset_password(payload: ResetPasswordRequest):
     try:
+        if not SECRET or len(SECRET) < 32:
+            raise HTTPException(status_code=503, detail="JWT secret is not configured securely")
         decoded = jwt.decode(payload.token, SECRET, algorithms=[ALGORITHM])
         if decoded.get("type") != "reset":
             raise HTTPException(status_code=400, detail="Invalid token type")
