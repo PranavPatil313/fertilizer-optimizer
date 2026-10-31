@@ -1,5 +1,7 @@
 # Fertilizer Optimizer
 
+[![Project checks](https://github.com/PranavPatil313/fertilizer-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/PranavPatil313/fertilizer-optimizer/actions/workflows/ci.yml)
+
 An AI-assisted agriculture application that combines crop and soil inputs with machine-learning predictions, weather context, and fertilizer-planning logic to generate crop-specific recommendation outputs.
 
 > **Project status:** Portfolio / development project. Model outputs and agronomic rules are experimental and should be validated by qualified agronomists and local soil-test recommendations before real-world use.
@@ -118,6 +120,9 @@ See the live OpenAPI schema at `/docs` after starting the backend for request an
 The repository includes `.env.example` as a starting point. Keep actual secrets in an untracked `.env` file or your deployment platform's secret manager. Values beginning with `VITE_` are embedded in the browser bundle and must never contain privileged secrets.
 
 ## Validation and limitations
+
+The GitHub Actions workflow runs the backend test suite and a production frontend build on pushes and pull requests to `main`. Check the badge above for the latest result; a green frontend build does not imply that model quality or agronomic validity has been established.
+
 
 - Run the available backend tests with `pytest tests/ -v` after installing the test dependencies.
 - Build-check the frontend with `npm run build` from `fert-frontend/`.
