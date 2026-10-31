@@ -1,92 +1,130 @@
-# 🌱 FertilizerOptimizer
+# Fertilizer Optimizer
 
-> **Enterprise-Grade AI Agronomy & Sustainability Platform**
+An AI-assisted agriculture application that combines crop and soil inputs with machine-learning predictions, weather context, and fertilizer-planning logic to generate crop-specific recommendation outputs.
 
-FertilizerOptimizer is a full-stack, machine-learning-powered web application designed for agronomists, agricultural co-ops, and large-scale farming enterprises. 
+> **Project status:** Portfolio / development project. Model outputs and agronomic rules are experimental and should be validated by qualified agronomists and local soil-test recommendations before real-world use.
 
-By combining standard soil test metrics (N, P, K, pH, OM%) with live regional weather data, the platform's ML pipeline generates highly accurate, sustainable fertilizer plans that maximize crop yield while minimizing the ecological carbon footprint.
+## What it does
 
----
+- **NPK and yield prediction** from crop, soil, and plot inputs using a scikit-learn-based ML pipeline.
+- **Fertilizer planning** with nutrient recommendations and product-blend calculations.
+- **Soil-health and carbon estimates** exposed through dedicated API endpoints. Carbon emission factors in the current code are illustrative placeholders, not verified lifecycle-assessment values.
+- **Weather-aware context** using a three-day WeatherAPI forecast when a valid API key is configured.
+- **AI-assisted explanations** through the optional Google Gemini integration, with rule-based output available when the integration is not configured.
+- **Farm and plot workflows** with user authentication, plot/prediction persistence, and admin endpoints for dataset management and model-training jobs.
+- **Report generation** for recommendation outputs, including PDF responses.
+- **React web interface** for entering plot information and viewing results.
 
-## ✨ Key Features
+## Technology
 
-- **🧠 Machine Learning Agronomy:** Predicts optimal Nitrogen, Phosphorus, and Potassium requirements and forecasts crop yield based on regional datasets.
-- **🌍 Sustainability & Carbon Tracking:** Automatically calculates the CO₂ equivalent footprint of recommended fertilizer plans.
-- **⛅ Weather-Aware Insights:** Integrates with weather APIs to adjust application safety windows based on 3-day precipitation forecasts.
-- **🗺️ GIS Interactive Mapping:** Visualize all managed farm plots on an interactive geographic map with live filtering.
-- **📑 White-Labeled PDF Reports:** Generate custom-branded agronomy reports (via ReportLab) to hand directly to farmers.
-- **🔄 Continuous Feedback Loop:** Log actual harvested yields to monitor ML model drift and improve future predictions.
-- **⚡ Batch CSV Processing:** Import hundreds of farm plots simultaneously with a rate-limit-safe background queue.
-- **🏢 Multi-Tenant Admin Console:** Manage users, trigger background ML training jobs, and dispatch automated weekly email summaries.
+| Layer | Technologies |
+|---|---|
+| API | Python, FastAPI, Pydantic |
+| Machine learning | scikit-learn, XGBoost, CatBoost, pandas, NumPy |
+| Persistence | SQLAlchemy (async), SQLite for local fallback, PostgreSQL via asyncpg |
+| Integrations | WeatherAPI, Google Gemini (optional) |
+| Frontend | React 18, Vite, React Router, Axios, Tailwind CSS, Material UI |
+| Infrastructure | Docker, Docker Compose, Nginx, Alembic |
 
----
+## Repository layout
 
-## 🛠️ Technology Stack
+```text
+fertilizer-optimizer/
+├── fert-frontend/       # React + Vite frontend
+├── src/
+│   ├── api/             # FastAPI routes, schemas and API utilities
+│   ├── auth/            # API-key and JWT authentication helpers
+│   ├── data/             # Crop profiles and project datasets
+│   ├── db/               # SQLAlchemy models and database session
+│   ├── services/         # Weather, Gemini, dataset and training services
+│   ├── artifact/         # Local model artifacts and generated reports
+│   ├── recommendation.py # Fertilizer recommendation and report logic
+│   └── train.py          # Model-training entry point
+├── tests/                # API and recommendation tests
+├── alembic/              # Database migrations
+├── Dockerfile.backend
+└── docker-compose.yml
+```
 
-### Backend (API & ML)
-- **Framework:** FastAPI (Python 3.10+)
-- **Machine Learning:** Scikit-Learn (Ensemble Regressors), Pandas, NumPy
-- **Database:** SQLite + SQLAlchemy (Async)
-- **Document Generation:** ReportLab
-- **Authentication:** JWT (JSON Web Tokens) & Passlib (Bcrypt)
-
-### Frontend (Web App)
-- **Framework:** React 18 + Vite
-- **Routing:** React Router DOM
-- **Styling:** Tailwind CSS
-- **Data Visualization:** Recharts (Analytics) & React-Leaflet (GIS Mapping)
-
-### DevOps & Infrastructure
-- **Containerization:** Docker & Docker Compose (Multi-stage builds)
-- **Web Server:** Nginx (Static SPA serving)
-- **CI/CD:** GitHub Actions (Automated Pytest testing and Docker builds)
-
----
-
-## 🚀 Quickstart (Docker)
-
-The easiest way to run FertilizerOptimizer locally or on a cloud VPS is using Docker Compose. This will spin up the backend API, the frontend Nginx server, and wire them together.
+## Run locally
 
 ### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed.
 
-### 1. Clone the repository
+- Python 3.10+
+- Node.js 20+
+- npm
+- A supported database. The backend falls back to a local SQLite database when `DATABASE_URL` is not set; PostgreSQL can be configured with an async SQLAlchemy URL.
+
+### 1. Clone the project
+
 ```bash
-git clone https://github.com/yourusername/fertilizer-optimizer.git
+git clone https://github.com/PranavPatil313/fertilizer-optimizer.git
 cd fertilizer-optimizer
 ```
 
-### 2. Configure Environment
-Create a `.env` file in the root directory:
-```env
-ENV=production
-SECRET_KEY=your_super_secret_jwt_key
-ADMIN_EMAILS=admin@yourcompany.com
-```
-
-### 3. Spin up the stack
-```bash
-docker-compose up -d --build
-```
-
-### 4. Access the Application
-- **Frontend:** http://localhost:5173
-- **Backend API Docs:** http://localhost:8000/docs
-
----
-
-## 🧪 Running Tests
-
-The backend features an automated testing suite using `pytest`.
+### 2. Configure the backend
 
 ```bash
+python -m venv .venv
+# Windows PowerShell:
+.venv\\Scripts\\Activate.ps1
+# macOS / Linux:
+# source .venv/bin/activate
+
 pip install -r requirements.txt
-pip install pytest httpx pytest-asyncio
-pytest tests/ -v
+copy .env.example .env
 ```
 
----
+Open `.env` and replace every example value with your own locally generated credentials. At minimum, configure strong, unique values for the API and JWT secrets. Weather and Gemini integrations require their respective provider API keys. Never commit `.env` or real credentials.
 
-## 📄 License
+### 3. Start the API
 
-This project is licensed under the MIT License.
+```bash
+uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+- API base: http://localhost:8000
+- Interactive API documentation: http://localhost:8000/docs
+
+### 4. Start the frontend
+
+In a second terminal:
+
+```bash
+cd fert-frontend
+npm install
+npm run dev
+```
+
+Vite prints the local frontend URL (normally http://localhost:5173). Set `VITE_API_URL` in the frontend environment if the API is hosted elsewhere.
+
+## API surface
+
+The FastAPI application exposes endpoints for:
+
+- `/predict` — NPK and yield prediction
+- `/recommend` — end-to-end fertilizer recommendation
+- `/soil-health` — soil-health index calculation
+- `/carbon` — estimated carbon footprint calculation
+- `/weather/preview` — weather snapshot and risk summary
+- `/report` — recommendation report generation
+- `/auth/*` — signup, login and password-reset flows
+- `/admin/*` — protected administration and model-training workflows
+
+See the live OpenAPI schema at `/docs` after starting the backend for request and response models.
+
+## Configuration
+
+The repository includes `.env.example` as a starting point. Keep actual secrets in an untracked `.env` file or your deployment platform's secret manager. Values beginning with `VITE_` are embedded in the browser bundle and must never contain privileged secrets.
+
+## Validation and limitations
+
+- Run the available backend tests with `pytest tests/ -v` after installing the test dependencies.
+- Build-check the frontend with `npm run build` from `fert-frontend/`.
+- Prediction quality has not been independently benchmarked in this README. Do not describe the model as highly accurate without a held-out evaluation and reported metrics.
+- Agronomic recommendations depend on dataset quality, regional conditions, soil testing, and crop-specific guidance. Treat outputs as decision support, not a substitute for professional agronomic advice.
+- Carbon factors in `src/carbon.py` are explicitly marked as placeholders and must be replaced with authoritative, documented factors before sustainability claims are made.
+
+## License
+
+No `LICENSE` file is currently present. Add an explicit license before inviting reuse or contributions.
