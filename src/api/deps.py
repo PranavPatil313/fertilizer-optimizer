@@ -7,7 +7,7 @@ from sqlalchemy import select
 from src.db.session import AsyncSessionLocal
 from src.db.models import User
 
-SECRET = os.getenv("SECRET_KEY", os.getenv("JWT_SECRET", "super-secret-key"))
+SECRET = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 def get_token_from_header(authorization: str | None = Header(None)):
@@ -23,6 +23,8 @@ def get_token_from_header(authorization: str | None = Header(None)):
 
 async def get_current_user_token(token: str = Depends(get_token_from_header)):
     # verify / decode token
+    if not SECRET or len(SECRET) < 32:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="JWT secret is not configured securely")
     try:
         payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
     except JWTError as e:
