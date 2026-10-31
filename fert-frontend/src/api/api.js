@@ -3,7 +3,8 @@ import axios from "axios";
 
 export const API_URL =
   (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
-const API_KEY = import.meta.env.VITE_API_KEY || "changeme123";
+// VITE_* variables are public client configuration, never privileged secrets.
+const API_KEY = import.meta.env.VITE_API_KEY || "";
 
 export function getToken() {
   return (
